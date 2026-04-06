@@ -6,6 +6,7 @@ import { mkdtemp, readdir, rm, copyFile, readFile, writeFile } from "node:fs/pro
 import { spawn } from "node:child_process";
 import JSZip from "jszip";
 import { applySchemaAndSeed } from "./lib/postgres-admin.mjs";
+import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
 
 const repoRoot = process.cwd();
 const backend = process.env.PERSISTENCE_BACKEND?.trim().toLowerCase() === "postgres" ? "postgres" : "file";
@@ -466,6 +467,14 @@ async function requestJson(url, options = {}) {
   return { response, json };
 }
 
+async function getPersistedPatientSnapshot(targetPatientId = patientId) {
+  return loadPersistedPatientSnapshot({
+    backend,
+    patientId: targetPatientId,
+    repoRoot,
+  });
+}
+
 async function expectJson(url, options, expectedStatus) {
   const result = await requestJson(url, options);
   assert.equal(result.response.status, expectedStatus, `${url} should return ${expectedStatus}`);
@@ -477,7 +486,8 @@ async function assertPatientSnapshotResponseContract(result, targetPatientId) {
     return result;
   }
 
-  const snapshot = await getPatientSnapshot(targetPatientId);
+  const snapshot = await getPersistedPatientSnapshot(targetPatientId);
+  assert.ok(snapshot, `Persisted patient ${targetPatientId} should exist when patientSnapshot is returned.`);
   assert.equal(result.patientSnapshot.lastReviewedAt, snapshot.patient.lastReviewedAt);
 
   if ("totalMeasurements" in result.patientSnapshot) {
@@ -895,12 +905,19 @@ async function runScenario(name, backendController, run) {
   log("scenario", `starting ${name}`);
   await backendController.reset();
   await run();
-  const snapshot = await getPatientSnapshot();
-  await assertSnapshotInvariants(snapshot);
+  const apiSnapshot = await getPatientSnapshot();
+  const persistedSnapshot = await getPersistedPatientSnapshot();
+  assert.ok(persistedSnapshot, `Persisted patient ${patientId} should exist after scenario ${name}.`);
+  assert.deepEqual(
+    apiSnapshot,
+    persistedSnapshot,
+    `GET /api/patients/[patientId] must match persisted backend state after scenario ${name}.`,
+  );
+  await assertSnapshotInvariants(persistedSnapshot);
   log("scenario", `passed ${name}`);
   return {
     name,
-    state: normalizeSnapshotForParity(snapshot),
+    state: normalizeSnapshotForParity(persistedSnapshot),
   };
 }
 
@@ -911,17 +928,14 @@ const scenarios = [
     coverageType: "mixed",
     async run() {
       const snapshot = await getPatientSnapshot();
-      assert.equal(snapshot.patient.id, patientId);
-      assert.ok(Array.isArray(snapshot.patient.measurements));
-      assert.ok(Array.isArray(snapshot.patient.timeline));
-      assert.ok(Array.isArray(snapshot.reportIngestions));
-      assert.ok(Array.isArray(snapshot.sourceDocuments));
-      assert.ok(Array.isArray(snapshot.parseTasks));
-      assert.ok(Array.isArray(snapshot.reviewDecisions));
-      assert.ok(Array.isArray(snapshot.measurementPromotions));
+      const persistedSnapshot = await getPersistedPatientSnapshot();
+      assert.ok(persistedSnapshot);
+      assert.deepEqual(snapshot, persistedSnapshot);
 
       const missing = await getPatientSnapshot("pt_missing", 404);
       assert.equal(missing.error, "Patient not found.");
+      const missingPersisted = await getPersistedPatientSnapshot("pt_missing");
+      assert.equal(missingPersisted, null);
     },
   },
   {

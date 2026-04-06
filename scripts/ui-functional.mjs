@@ -4,6 +4,7 @@ import os from "node:os";
 import { mkdtemp, readdir, rm, copyFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
 
 const repoRoot = process.cwd();
 const patientId = "pt_001";
@@ -145,10 +146,14 @@ function countImprovingSignals(snapshot) {
   return snapshot.patient.measurements.filter((measurement) => measurement.evidenceStatus === "improving").length;
 }
 
-async function fetchPatientSnapshot(page) {
-  const patientResponse = await page.context().request.get(`${baseUrl}/api/patients/${patientId}`);
-  assert.equal(patientResponse.ok(), true);
-  return patientResponse.json();
+async function loadPersistedSnapshot() {
+  const snapshot = await loadPersistedPatientSnapshot({
+    backend: "file",
+    patientId,
+    repoRoot,
+  });
+  assert.ok(snapshot, `Persisted patient ${patientId} should exist.`);
+  return snapshot;
 }
 
 async function expectSectionHeadPill(section, text) {
@@ -191,7 +196,7 @@ async function assertDashboardMatchesSnapshot(sections, snapshot) {
 }
 
 async function assertUiStateUnchangedAfterError(page, sections, expectedSnapshot, discoveredWorkbenchHeadings) {
-  const currentSnapshot = await fetchPatientSnapshot(page);
+  const currentSnapshot = await loadPersistedSnapshot();
   assert.deepEqual(currentSnapshot, expectedSnapshot);
   await refreshDashboard(page);
   await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
@@ -336,10 +341,10 @@ async function main() {
     await signalBoardSection.getByText("Epigenetic Biological Age", { exact: true }).waitFor();
     coveredDashboardHeadings.add("Modality-aware evidence cards");
     coveredDashboardHeadings.add("Clinician prep");
-    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
+    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
 
     const documentFilename = "ui-functional.csv";
-    const documentErrorSnapshot = await fetchPatientSnapshot(page);
+    const documentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("   ");
     await documentSection.locator('input[type="file"]').setInputFiles({
       name: documentFilename,
@@ -368,12 +373,12 @@ async function main() {
     await parseTasksSection.getByText("csv_table", { exact: true }).waitFor();
     coveredDashboardHeadings.add("Stored source documents");
     coveredDashboardHeadings.add("Document parse tasks");
-    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
+    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("document", "uploaded CSV through the UI and observed parser task on the page");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
-    const reviewErrorSnapshot = await fetchPatientSnapshot(page);
+    const reviewErrorSnapshot = await loadPersistedSnapshot();
     await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
     await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
@@ -403,11 +408,11 @@ async function main() {
     await reviewSection.getByText("UI clinician").waitFor();
     await parseTasksSection.getByText("1 reviewed").waitFor();
     coveredDashboardHeadings.add("Document parse tasks");
-    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
+    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("review", "accepted and mapped a parser candidate through the UI");
 
     const promotionSelect = promotionSection.locator("select").first();
-    const promotionErrorSnapshot = await fetchPatientSnapshot(page);
+    const promotionErrorSnapshot = await loadPersistedSnapshot();
     await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
     await page.route(
       "**/api/review/promote",
@@ -440,10 +445,10 @@ async function main() {
     await timelineSection.getByText("ApoB promoted into canonical record").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
     coveredDashboardHeadings.add("Modality-aware evidence cards");
-    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
+    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("promotion", "promoted the accepted review decision through the UI");
 
-    const reportErrorSnapshot = await fetchPatientSnapshot(page);
+    const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
     await reportSection.locator("pre").filter({ hasText: '"error": "entries must be an array."' }).waitFor();
@@ -459,10 +464,10 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("Hurdle report normalized").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
-    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
+    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("report", "ran report normalization through the UI");
 
-    const interventionErrorSnapshot = await fetchPatientSnapshot(page);
+    const interventionErrorSnapshot = await loadPersistedSnapshot();
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("   ");
     await interventionSection
       .locator("label")
@@ -489,7 +494,7 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("UI intervention checkpoint").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
-    const snapshot = await fetchPatientSnapshot(page);
+    const snapshot = await loadPersistedSnapshot();
     await assertDashboardMatchesSnapshot(sections, snapshot);
     log("intervention", "saved an intervention through the UI");
 

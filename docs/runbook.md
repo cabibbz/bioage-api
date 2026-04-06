@@ -63,13 +63,14 @@ This runs:
 - a post-run git-status guard so `npm run verify:meta` fails if verification changes the worktree relative to its starting state
 - committed file-backed functional coverage across route validation, report intake, intervention intake, review, promotion, and every document/parser classification
 - mutation response contracts that compare every successful `patientSnapshot` summary against the persisted patient state
+- patient-route contract checks that compare `GET /api/patients/[patientId]` directly against the persisted backend snapshot after every functional scenario
 - route-breadth inventory rules that require every discovered API route method to have both a success path and an error path in the functional suite
 - trim-aware required-field validation coverage so blank or whitespace-only request fields fail with the documented `400` responses
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
 - browser workbench coverage now requires both a successful path and an invalid-action path for every discovered interactive workbench
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
-- live browser assertions that compare dashboard counters and signal-board titles against the patient API snapshot after each workflow step and prove failed UI actions do not mutate persisted state
+- live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
