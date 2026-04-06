@@ -145,7 +145,7 @@ export function AppShell({
 
       <section className="workbench-grid">
         <DocumentUploadWorkbench />
-        <ReviewWorkbench tasks={parseTasks} decisions={reviewDecisions} />
+        <ReviewWorkbench tasks={parseTasks} decisions={reviewDecisions} promotions={measurementPromotions} />
         <PromotionWorkbench decisions={reviewDecisions} promotions={measurementPromotions} />
         <UploadWorkbench />
         <InterventionWorkbench />

@@ -3,11 +3,12 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { canonicalCatalog } from "@/src/lib/normalization/catalog";
-import { StoredParseTask, StoredReviewDecision } from "@/src/lib/persistence/store-types";
+import { StoredMeasurementPromotion, StoredParseTask, StoredReviewDecision } from "@/src/lib/persistence/store-types";
 
 type ReviewWorkbenchProps = {
   tasks: StoredParseTask[];
   decisions: StoredReviewDecision[];
+  promotions: StoredMeasurementPromotion[];
 };
 
 const defaultReviewerName = "Demo clinician";
@@ -20,9 +21,24 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function ReviewWorkbench({ tasks, decisions }: ReviewWorkbenchProps) {
+export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenchProps) {
   const router = useRouter();
-  const candidateTasks = useMemo(() => tasks.filter((task) => task.candidates.length > 0), [tasks]);
+  const candidateTasks = useMemo(() => {
+    const promotedDecisionIds = new Set(promotions.map((promotion) => promotion.reviewDecisionId));
+    const promotedCandidateKeys = new Set(
+      decisions
+        .filter((decision) => promotedDecisionIds.has(decision.id))
+        .map((decision) => `${decision.parseTaskId}:${decision.candidateId}`),
+    );
+
+    return tasks
+      .map((task) => ({
+        ...task,
+        candidates: task.candidates.filter((candidate) => !promotedCandidateKeys.has(`${task.id}:${candidate.id}`)),
+      }))
+      .filter((task) => task.candidates.length > 0);
+  }, [decisions, promotions, tasks]);
+  const hasAnyCandidates = tasks.some((task) => task.candidates.length > 0);
   const [selectedTaskId, setSelectedTaskId] = useState(candidateTasks[0]?.id ?? "");
   const [selectedCandidateId, setSelectedCandidateId] = useState(candidateTasks[0]?.candidates[0]?.id ?? "");
   const [action, setAction] = useState<"accept" | "reject" | "follow_up">("accept");
@@ -123,8 +139,12 @@ export function ReviewWorkbench({ tasks, decisions }: ReviewWorkbenchProps) {
 
       {candidateTasks.length === 0 ? (
         <div className="detail-card">
-          <div className="detail-label">No candidates yet</div>
-          <p className="detail-copy">Upload a structured source document first so the parser can produce candidate values.</p>
+          <div className="detail-label">{hasAnyCandidates ? "No editable candidates" : "No candidates yet"}</div>
+          <p className="detail-copy">
+            {hasAnyCandidates
+              ? "Already-promoted candidates are removed from the editable review queue. Upload another structured source document to continue review."
+              : "Upload a structured source document first so the parser can produce candidate values."}
+          </p>
         </div>
       ) : (
         <>

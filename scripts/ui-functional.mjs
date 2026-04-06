@@ -152,6 +152,25 @@ async function waitForSelectOptionValue(selectLocator, value) {
   throw new Error(`Timed out waiting for select option value "${value}".`);
 }
 
+async function readSelectOptionValues(selectLocator) {
+  return selectLocator.locator("option").evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("value") ?? ""),
+  );
+}
+
+async function waitForSelectOptionValueToDisappear(selectLocator, value) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const options = await readSelectOptionValues(selectLocator);
+    if (!options.includes(value)) {
+      return options;
+    }
+
+    await selectLocator.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for select option value "${value}" to disappear.`);
+}
+
 function countFlaggedSignals(snapshot) {
   return snapshot.patient.measurements.filter(
     (measurement) => measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch",
@@ -974,25 +993,19 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
     log("promotion", "promoted the reopened decision and verified the queue emptied again without duplicating review records");
 
-    const promotedDecisionUpdateSnapshot = await loadPersistedSnapshot();
     await waitForSelectOptionValue(parseTaskSelect, resolvedUpdateTarget.task.id);
     await parseTaskSelect.selectOption({ value: resolvedUpdateTarget.task.id });
-    await waitForSelectOptionValue(candidateSelect, resolvedUpdateTarget.candidate.id);
-    await candidateSelect.selectOption({ value: resolvedUpdateTarget.candidate.id });
-    await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("reject");
-    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician blocked update");
-    await reviewSection
-      .locator("label")
-      .filter({ hasText: "Note" })
-      .locator("textarea")
-      .fill("Attempting to change a promoted decision should be rejected without mutating state.");
-    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
-    await reviewSection
-      .locator("pre")
-      .filter({ hasText: `"error": "Review decision ${updatedReviewDecision.id} was already promoted and cannot be changed."` })
-      .waitFor();
-    await assertUiStateUnchangedAfterError(page, sections, promotedDecisionUpdateSnapshot, discoveredWorkbenchHeadings);
-    log("review", "rejected an attempted update to a promoted review decision without mutating persisted state");
+    const remainingCandidateValues = await waitForSelectOptionValueToDisappear(
+      candidateSelect,
+      resolvedUpdateTarget.candidate.id,
+    );
+    assert.ok(
+      !remainingCandidateValues.includes(resolvedUpdateTarget.candidate.id),
+      "Promoted candidates should disappear from the editable review queue.",
+    );
+    assert.ok(remainingCandidateValues.length > 0, "The review workbench should still expose other editable candidates.");
+    await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
+    log("review", "removed the promoted candidate from the editable review queue after promotion");
 
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
