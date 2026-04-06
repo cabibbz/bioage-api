@@ -555,7 +555,8 @@ function normalizeSnapshotForParity(snapshot) {
             modality: measurement.modality,
             sourceVendor: measurement.sourceVendor,
             sourceField: measurement.sourceField,
-            value: measurement.value,
+            value: measurement.value ?? null,
+            textValue: measurement.textValue ?? null,
             unit: measurement.unit ?? null,
             observedAt: measurement.observedAt,
             confidence: measurement.confidence,
@@ -565,7 +566,8 @@ function normalizeSnapshotForParity(snapshot) {
         unmappedEntries: sortNormalizedList(
           ingestion.unmappedEntries.map((entry) => ({
             sourceField: entry.sourceField,
-            value: entry.value,
+            value: entry.value ?? null,
+            textValue: entry.textValue ?? null,
             unit: entry.unit ?? null,
           })),
         ),
@@ -2023,7 +2025,10 @@ async function main() {
       .click();
     await reportSection
       .locator("pre")
-      .filter({ hasText: '"error": "Each entry must include a non-empty string name and numeric value."' })
+      .filter({
+        hasText:
+          '"error": "Each entry must include a non-empty string name plus either numeric value or non-empty textValue."',
+      })
       .waitFor();
     await assertReportDraftState(reportSection, {
       vendor: "TruDiagnostic",
@@ -2052,6 +2057,7 @@ async function main() {
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 81, unit: "mg/dL" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
+          { name: "CRP", textValue: "<0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
           { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
           { name: "Unknown vendor score", value: 72 },
@@ -2067,7 +2073,9 @@ async function main() {
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
-    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 7' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 8' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "inflammation_crp"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"textValue": "<0.3"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "hba1c"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"value": 5.26' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "lp_a"' }).waitFor();

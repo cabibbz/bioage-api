@@ -31,12 +31,12 @@ The app is a Next.js prototype with a seeded patient, dashboard shell, report/in
 - local file storage is not safe for multi-user or concurrent writes
 - object storage is still a stub behind the storage adapter
 - the Postgres backend is only functionally tested when `DATABASE_URL` is available
-- direct report intake is still numeric-only; text and bounded values currently rely on reviewed parser promotion
+- direct report intake now accepts numeric plus text/bounded entries, but categorical semantics and richer interpretation still need hardening
 - unit-aware normalization still only covers the first safe alternate-unit cases
 - PDF, image, HTML, and binary spreadsheet parsing are intentionally deferred
 
 ## Next 3 Moves
 
-1. Broaden direct report intake plus interpretation beyond numeric-only entries so bounded/text vendor payloads can skip parser promotion when safe.
+1. Harden direct report interpretation and display for bounded, categorical, and text-valued entries without hiding provenance.
 2. Broaden unit-aware normalization beyond the first safe alternate-unit rules without hiding non-convertible cases like Lp(a).
 3. Implement the real object-storage backend behind the current storage contract.

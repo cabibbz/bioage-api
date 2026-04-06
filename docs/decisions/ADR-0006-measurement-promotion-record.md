@@ -27,5 +27,5 @@ Benefits:
 Costs:
 
 - the persistence model grows again
-- direct report intake still does not accept non-numeric entries
+- direct report intake can also write bounded/text report values now, so value-type rules must stay aligned across intake and promotion
 - bulk promotion and conflict handling still need future design

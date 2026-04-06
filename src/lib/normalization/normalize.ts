@@ -1,12 +1,11 @@
-import { MeasurementModality } from "@/src/lib/domain/types";
+import { CanonicalMeasurementValue, MeasurementModality } from "@/src/lib/domain/types";
 import { findCanonicalDefinitionByName, normalizeCatalogKey } from "@/src/lib/normalization/catalog";
 import { resolveMeasurementUnit } from "@/src/lib/normalization/units";
 
 type NormalizeEntry = {
   name: string;
-  value: number;
   unit?: string;
-};
+} & CanonicalMeasurementValue;
 
 type NormalizeInput = {
   patientId: string;
@@ -21,18 +20,16 @@ export type NormalizedMeasurement = {
   modality: MeasurementModality;
   sourceVendor: string;
   sourceField: string;
-  value: number;
   unit?: string;
   observedAt: string;
   confidence: "high" | "moderate";
   note: string;
-};
+} & CanonicalMeasurementValue;
 
 export type UnmappedEntry = {
   sourceField: string;
-  value: number;
   unit?: string;
-};
+} & CanonicalMeasurementValue;
 
 export type NormalizedReportPayload = {
   patientId: string;
@@ -52,13 +49,37 @@ export function normalizeReportPayload(input: NormalizeInput): NormalizedReportP
     if (!match) {
       unmappedEntries.push({
         sourceField: entry.name,
-        value: entry.value,
+        ...(entry.value !== undefined ? { value: entry.value } : { textValue: entry.textValue }),
         unit: entry.unit,
       });
       continue;
     }
 
-    const normalizedUnit = resolveMeasurementUnit(match, entry.value, entry.unit);
+    if (entry.value !== undefined) {
+      const normalizedValue = resolveMeasurementUnit(match, entry.value, entry.unit);
+
+      measurements.push({
+        canonicalCode: match.canonicalCode,
+        title: match.title,
+        modality: match.modality,
+        sourceVendor: input.vendor,
+        sourceField: entry.name,
+        value: normalizedValue.value,
+        unit: normalizedValue.unit,
+        observedAt: input.observedAt,
+        confidence: normalizeCatalogKey(match.aliases[0]) === normalizedName ? "high" : "moderate",
+        note: [
+          match.modality === "epigenetic"
+            ? "Preserve source report and vendor method details before clinician review."
+            : "Suitable for timeline ingestion after unit and reference-range review.",
+          normalizedValue.note,
+          match.notes,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      });
+      continue;
+    }
 
     measurements.push({
       canonicalCode: match.canonicalCode,
@@ -66,15 +87,15 @@ export function normalizeReportPayload(input: NormalizeInput): NormalizedReportP
       modality: match.modality,
       sourceVendor: input.vendor,
       sourceField: entry.name,
-      value: normalizedUnit.value,
-      unit: normalizedUnit.unit,
+      textValue: entry.textValue,
+      unit: entry.unit,
       observedAt: input.observedAt,
       confidence: normalizeCatalogKey(match.aliases[0]) === normalizedName ? "high" : "moderate",
       note: [
         match.modality === "epigenetic"
           ? "Preserve source report and vendor method details before clinician review."
           : "Suitable for timeline ingestion after unit and reference-range review.",
-        normalizedUnit.note,
+        "Preserved reported text/bounded result without numeric conversion.",
         match.notes,
       ]
         .filter(Boolean)

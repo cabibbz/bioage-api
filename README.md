@@ -82,6 +82,6 @@ To apply the schema plus seed into a target database from the repo, run `npm run
 
 1. Validate the Postgres backend against a live local database and keep the Postgres functional path green.
 2. Add object storage for source reports.
-3. Broaden direct report intake plus interpretation beyond numeric-only entries.
+3. Broaden unit-aware normalization plus value-type-specific interpretation for direct report intake.
 4. Add Terra wearable ingestion.
 5. Add one EHR / practice integration.

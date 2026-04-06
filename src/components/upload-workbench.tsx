@@ -14,6 +14,7 @@ const demoPayload = {
     { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
     { name: "LDL-C", value: 81, unit: "mg/dL" },
     { name: "HbA1c", value: 34, unit: "mmol/mol" },
+    { name: "CRP", textValue: "<0.3", unit: "mg/L" },
     { name: "Lp(a)", value: 28, unit: "mg/dL" },
     { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
     { name: "Unknown vendor score", value: 72 },

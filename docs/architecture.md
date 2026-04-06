@@ -49,6 +49,6 @@ Current non-goals:
 - move source report binaries into object storage with checksums
 - add field-level review queues for unmapped metrics
 - separate source ingestion from clinician-facing projections
-- broaden direct report intake plus interpretation beyond numeric-only entries
+- harden direct report interpretation and display for bounded, categorical, and text-valued entries
 - broaden unit-aware normalization beyond the current safe alternate-unit rules
 - support vendor-specific and multimodal PDF parsing only after review semantics exist

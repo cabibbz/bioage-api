@@ -1,10 +1,19 @@
-export type NormalizedReportEntry = {
-  name: string;
-  value: number;
-  unit?: string;
-};
+export type NormalizedReportEntry =
+  | {
+      name: string;
+      value: number;
+      textValue?: undefined;
+      unit?: string;
+    }
+  | {
+      name: string;
+      value?: undefined;
+      textValue: string;
+      unit?: string;
+    };
 
-export const reportEntriesShapeError = "Each entry must include a non-empty string name and numeric value.";
+export const reportEntriesShapeError =
+  "Each entry must include a non-empty string name plus either numeric value or non-empty textValue.";
 
 export function normalizeReportEntries(
   entries: unknown[],
@@ -19,6 +28,7 @@ export function normalizeReportEntries(
     const candidate = entry as {
       name?: unknown;
       value?: unknown;
+      textValue?: unknown;
       unit?: unknown;
     };
     const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
@@ -26,7 +36,11 @@ export function normalizeReportEntries(
       return { ok: false, error: reportEntriesShapeError };
     }
 
-    if (typeof candidate.value !== "number" || !Number.isFinite(candidate.value)) {
+    const hasNumericValue = typeof candidate.value === "number" && Number.isFinite(candidate.value);
+    const textValue = typeof candidate.textValue === "string" ? candidate.textValue.trim() : "";
+    const hasTextValue = Boolean(textValue);
+
+    if (hasNumericValue === hasTextValue) {
       return { ok: false, error: reportEntriesShapeError };
     }
 
@@ -35,11 +49,19 @@ export function normalizeReportEntries(
     }
 
     const unit = typeof candidate.unit === "string" ? candidate.unit.trim() : undefined;
-    normalizedEntries.push({
-      name,
-      value: candidate.value,
-      ...(unit ? { unit } : {}),
-    });
+    normalizedEntries.push(
+      hasNumericValue
+        ? {
+            name,
+            value: candidate.value as number,
+            ...(unit ? { unit } : {}),
+          }
+        : {
+            name,
+            textValue,
+            ...(unit ? { unit } : {}),
+          },
+    );
   }
 
   return { ok: true, entries: normalizedEntries };

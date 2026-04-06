@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         totalTimelineEvents: persisted.patient.timeline.length,
       },
       nextActions: [
-        "Extend the canonical measurement model for bounded, categorical, and text-valued results.",
+        "Harden interpretation and display rules for bounded, categorical, and text-valued report results.",
         "Expand unit-aware normalization beyond the first safe alternate-unit rules.",
         "Keep growing the review-first mapping catalog with vendor-specific aliases, units, and LOINC coverage.",
       ],

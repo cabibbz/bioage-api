@@ -182,7 +182,7 @@ npm run test:functional:postgres
 - no auth or HIPAA controls yet
 - no migration framework yet
 - intervention events are not yet connected to outcome windows
-- direct report intake still accepts numeric entries only; text and bounded values currently reach the canonical record through reviewed parser promotion
+- direct report intake now accepts numeric plus text/bounded entries, but categorical semantics and richer interpretation still need hardening
 - object storage is still a stub behind the storage adapter
 - full session verification only exercises Postgres when `DATABASE_URL` is configured
 - the bootstrap script is additive only and does not reset a database

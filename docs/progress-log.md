@@ -18,6 +18,8 @@
 - added a browser-driven UI suite that exercises all five clinician workbenches and verifies the dashboard refreshes against persisted state
 - fixed `/` to render dynamically so UI refreshes reflect newly persisted data instead of static build-time state
 - updated the contributor workflow so fully verified functionality changes are committed and pushed to GitHub in the same pass
+- extended direct report intake beyond numeric-only payloads so text and bounded vendor results can normalize straight into the canonical record
+- updated report persistence summaries, file/Postgres parity checks, and browser/API verification so text-valued report entries stay first-class through ingestion
 - added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
 - added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text

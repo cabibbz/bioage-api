@@ -229,7 +229,8 @@ function normalizeSnapshotForParity(snapshot) {
             modality: measurement.modality,
             sourceVendor: measurement.sourceVendor,
             sourceField: measurement.sourceField,
-            value: measurement.value,
+            value: measurement.value ?? null,
+            textValue: measurement.textValue ?? null,
             unit: measurement.unit ?? null,
             observedAt: measurement.observedAt,
             confidence: measurement.confidence,
@@ -239,7 +240,8 @@ function normalizeSnapshotForParity(snapshot) {
         unmappedEntries: sortNormalizedList(
           ingestion.unmappedEntries.map((entry) => ({
             sourceField: entry.sourceField,
-            value: entry.value,
+            value: entry.value ?? null,
+            textValue: entry.textValue ?? null,
             unit: entry.unit ?? null,
           })),
         ),
@@ -1038,7 +1040,10 @@ const scenarios = [
         },
         400,
       );
-      assert.equal(malformedEntry.error, "Each entry must include a non-empty string name and numeric value.");
+      assert.equal(
+        malformedEntry.error,
+        "Each entry must include a non-empty string name plus either numeric value or non-empty textValue.",
+      );
 
       const invalidObservedAt = await postJson(
         "/api/intake/report",
@@ -1069,18 +1074,19 @@ const scenarios = [
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 81, unit: "mg/dL" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
+          { name: "CRP", textValue: "<0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
           { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
           { name: "Mystery Marker", value: 12.3, unit: "arb" },
         ],
       });
 
-      assert.equal(report.normalizationSummary.totalEntries, 8);
+      assert.equal(report.normalizationSummary.totalEntries, 9);
       assert.equal(report.normalizationSummary.mappedEntries, report.measurements.length);
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        8,
+        9,
       );
       assert.deepEqual(
         report.measurements.map((measurement) => measurement.canonicalCode).sort(),
@@ -1089,12 +1095,21 @@ const scenarios = [
           "epigenetic_biological_age",
           "epigenetic_fitness_age",
           "hba1c",
+          "inflammation_crp",
           "ldl_cholesterol",
           "lp_a",
           "vitamin_d",
         ].sort(),
       );
       assert.deepEqual(report.unmappedEntries, [{ sourceField: "Mystery Marker", value: 12.3, unit: "arb" }]);
+      const crpMeasurement = report.measurements.find(
+        (measurement) => measurement.canonicalCode === "inflammation_crp",
+      );
+      assert.ok(crpMeasurement);
+      assert.equal(crpMeasurement.textValue, "<0.3");
+      assert.equal(crpMeasurement.value, undefined);
+      assert.equal(crpMeasurement.unit, "mg/L");
+      assert.ok(crpMeasurement.note.includes("Preserved reported text/bounded result"));
       const hba1cMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "hba1c");
       assert.ok(hba1cMeasurement);
       assert.equal(hba1cMeasurement.value, 5.26);

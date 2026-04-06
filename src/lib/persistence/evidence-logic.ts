@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PatientRecord } from "@/src/lib/domain/types";
+import { formatMeasurementValue } from "@/src/lib/domain/measurements";
 import { NormalizedMeasurement, UnmappedEntry } from "@/src/lib/normalization/normalize";
 import {
   ParsedMeasurementCandidate,
@@ -38,8 +39,7 @@ export function summarizeArchiveExtraction(
 }
 
 export function summarizeMeasurement(measurement: NormalizedMeasurement) {
-  const unitSuffix = measurement.unit ? ` ${measurement.unit}` : "";
-  return `${measurement.title} ${measurement.value}${unitSuffix}`;
+  return `${measurement.title} ${formatMeasurementValue(measurement)}`;
 }
 
 export function buildInterpretation(measurement: NormalizedMeasurement) {
@@ -80,7 +80,9 @@ export function toPatientMeasurement(
     modality: measurement.modality,
     sourceVendor: measurement.sourceVendor,
     observedAt: measurement.observedAt,
-    value: measurement.value,
+    ...(measurement.value !== undefined
+      ? { value: measurement.value }
+      : { textValue: measurement.textValue }),
     unit: measurement.unit,
     interpretation: buildInterpretation(measurement),
     evidenceStatus: toEvidenceStatus(measurement, unmappedEntries),
