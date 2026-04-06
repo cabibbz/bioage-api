@@ -34,6 +34,7 @@
 - widened qualitative text normalization again so assay-qualified wording like `NOT DETECTED BY PCR`, `NON REACTIVE SCREENING RESULT`, `DETECTED VIA ASSAY`, and `REPEATEDLY REACTIVE` now resolves into stable canonical text through both direct report intake and reviewed promotion
 - widened qualitative text normalization again so safe process-context wording like `NEGATIVE FOR SCREENING RESULT`, `POSITIVE FOR QUALITATIVE ASSAY`, and `NON REACTIVE FOR REPEAT SCREEN` now resolves into stable canonical text through both direct report intake and reviewed promotion
 - widened qualitative text normalization again so prefix-style process wording like `SCREENING POSITIVE`, `QUALITATIVE NEGATIVE RESULT`, and `ASSAY NON REACTIVE` now resolves into stable canonical text through both direct report intake and reviewed promotion
+- widened qualitative text normalization again so result-labeled wrappers like `SCREENING RESULT: POSITIVE`, `QUALITATIVE ASSAY RESULT NEGATIVE`, and `RESULT STATUS: NON REACTIVE` now resolve into stable canonical text through both direct report intake and reviewed promotion
 - added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
 - added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text
