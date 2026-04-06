@@ -61,6 +61,7 @@
 - tightened backend intake validation so report, intervention, and document routes reject malformed ISO timestamps, and expanded the functional suite to cover those invalid-date payloads
 - tightened the report-entry contract so malformed rows are rejected instead of being silently dropped, shared that validation between the report route and workbench, and added API plus browser coverage for the malformed-entry path
 - tightened the source-document contract so zero-byte uploads are rejected instead of being stored as review noise, shared that validation between the document route and workbench, and added API plus browser coverage for the empty-file path
+- pinned the file-backed functional entrypoint so `test:functional:file` and `verify:meta` still run the file suite correctly from a Postgres-configured shell
 
 ### 2026-04-05
 

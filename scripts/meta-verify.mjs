@@ -103,15 +103,28 @@ async function main() {
   await run("node", ["--check", "scripts/bootstrap-postgres.mjs"]);
   await run("npm.cmd", ["run", "build"]);
   await run("npm.cmd", ["run", "seed:postgres:check"]);
-  await run("npm.cmd", ["run", "test:functional:file"]);
-  await run("npm.cmd", ["run", "test:ui:file"]);
+  await run("npm.cmd", ["run", "test:functional:file"], {
+    env: {
+      PERSISTENCE_BACKEND: "file",
+    },
+  });
+  await run("npm.cmd", ["run", "test:ui:file"], {
+    env: {
+      PERSISTENCE_BACKEND: "file",
+    },
+  });
 
   const databaseUrl = process.env.DATABASE_URL?.trim();
   const requirePostgres = process.env.META_VERIFY_REQUIRE_POSTGRES === "1";
 
   if (databaseUrl) {
     await run("npm.cmd", ["run", "bootstrap:postgres"]);
-    await run("npm.cmd", ["run", "test:functional:postgres"]);
+    await run("npm.cmd", ["run", "test:functional:postgres"], {
+      env: {
+        PERSISTENCE_BACKEND: "postgres",
+        FUNCTIONAL_ALLOW_DB_RESET: "1",
+      },
+    });
     await run("npm.cmd", ["run", "test:functional:parity"]);
   } else if (requirePostgres) {
     throw new Error("DATABASE_URL is required because META_VERIFY_REQUIRE_POSTGRES=1.");

@@ -144,6 +144,8 @@ function deriveRelativePath(storageBackend, storageKey) {
 }
 
 function mapMeasurement(row) {
+  const unit = readOptionalText(row, "unit");
+  const deltaLabel = readOptionalText(row, "delta_label");
   return {
     id: readText(row, "id"),
     title: readText(row, "title"),
@@ -152,11 +154,11 @@ function mapMeasurement(row) {
     sourceVendor: readText(row, "source_vendor"),
     observedAt: toIsoString(row.observed_at),
     value: readNumber(row, "numeric_value"),
-    unit: readOptionalText(row, "unit"),
     interpretation: readText(row, "interpretation"),
     evidenceStatus: readText(row, "evidence_status"),
     confidenceLabel: readText(row, "confidence_label"),
-    deltaLabel: readOptionalText(row, "delta_label"),
+    ...(unit ? { unit } : {}),
+    ...(deltaLabel ? { deltaLabel } : {}),
   };
 }
 
@@ -186,6 +188,9 @@ function mapSourceDocument(row) {
   const storageBackend = readText(row, "storage_backend");
   const storageKey = readText(row, "storage_key");
   const archiveEntries = readJson(row, "archive_entries", []);
+  const observedAt = row.observed_at ? toIsoString(row.observed_at) : undefined;
+  const parentDocumentId = readOptionalText(row, "parent_document_id");
+  const archiveEntryPath = readOptionalText(row, "archive_entry_path");
 
   return {
     id: readText(row, "id"),
@@ -203,14 +208,15 @@ function mapSourceDocument(row) {
     classification: readText(row, "classification"),
     status: readText(row, "status"),
     receivedAt: toIsoString(row.received_at),
-    observedAt: row.observed_at ? toIsoString(row.observed_at) : undefined,
-    parentDocumentId: readOptionalText(row, "parent_document_id"),
-    archiveEntryPath: readOptionalText(row, "archive_entry_path"),
-    archiveEntries: archiveEntries.length > 0 ? archiveEntries : undefined,
+    ...(observedAt ? { observedAt } : {}),
+    ...(parentDocumentId ? { parentDocumentId } : {}),
+    ...(archiveEntryPath ? { archiveEntryPath } : {}),
+    ...(archiveEntries.length > 0 ? { archiveEntries } : {}),
   };
 }
 
 function mapParseTask(row) {
+  const errorMessage = readOptionalText(row, "error_message");
   return {
     id: readText(row, "id"),
     patientId: readText(row, "patient_id"),
@@ -227,11 +233,15 @@ function mapParseTask(row) {
     candidates: readJson(row, "candidates", []),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
-    errorMessage: readOptionalText(row, "error_message"),
+    ...(errorMessage ? { errorMessage } : {}),
   };
 }
 
 function mapReviewDecision(row) {
+  const note = readOptionalText(row, "note");
+  const proposedCanonicalCode = readOptionalText(row, "proposed_canonical_code");
+  const proposedTitle = readOptionalText(row, "proposed_title");
+  const proposedModality = readOptionalText(row, "proposed_modality");
   return {
     id: readText(row, "id"),
     patientId: readText(row, "patient_id"),
@@ -243,12 +253,12 @@ function mapReviewDecision(row) {
     candidateSourcePath: readText(row, "candidate_source_path"),
     action: readText(row, "action"),
     reviewerName: readText(row, "reviewer_name"),
-    note: readOptionalText(row, "note"),
-    proposedCanonicalCode: readOptionalText(row, "proposed_canonical_code"),
-    proposedTitle: readOptionalText(row, "proposed_title"),
-    proposedModality: readOptionalText(row, "proposed_modality"),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
+    ...(note ? { note } : {}),
+    ...(proposedCanonicalCode ? { proposedCanonicalCode } : {}),
+    ...(proposedTitle ? { proposedTitle } : {}),
+    ...(proposedModality ? { proposedModality } : {}),
   };
 }
 

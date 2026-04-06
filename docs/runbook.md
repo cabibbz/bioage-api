@@ -62,6 +62,7 @@ This runs:
 - SQL seed drift check against `db/seed-from-store.sql` without rewriting the tracked file
 - a post-run git-status guard so `npm run verify:meta` fails if verification changes the worktree relative to its starting state
 - committed file-backed functional coverage across route validation, report intake, intervention intake, review, promotion, and every document/parser classification
+- the file-backed functional entrypoint is now backend-pinned, so `npm run test:functional:file` and `npm run verify:meta` still route that suite through the file repository even inside a Postgres-configured shell
 - the functional suite now also discovers promotable review targets and canonical mappings from live parse-task output instead of assuming the first numeric candidate maps to a fixed code
 - canonical mapping aliases now live in a shared JSON catalog contract, so runtime normalization and both verification suites resolve candidate-to-canonical matches from the same source
 - mutation response contracts that compare every successful `patientSnapshot` summary against the persisted patient state

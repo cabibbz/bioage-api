@@ -732,13 +732,19 @@ function createUnknownFixture() {
   return Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04]);
 }
 
+const deterministicZipDate = new Date("2026-01-01T00:00:00.000Z");
+
 async function createArchiveFixture() {
   const zip = new JSZip();
-  zip.file("bundle.json", createNumericFhirBundle());
-  zip.file("labs.csv", createCsvFixture());
-  zip.file("notes.txt", createTextFixture());
+  zip.file("bundle.json", createNumericFhirBundle(), { date: deterministicZipDate });
+  zip.file("labs.csv", createCsvFixture(), { date: deterministicZipDate });
+  zip.file("notes.txt", createTextFixture(), { date: deterministicZipDate });
 
-  return zip.generateAsync({ type: "nodebuffer" });
+  return zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    platform: "DOS",
+  });
 }
 
 const documentScenarios = [

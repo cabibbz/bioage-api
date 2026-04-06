@@ -116,6 +116,8 @@ function deriveRelativePath(storageBackend: StoredSourceDocument["storageBackend
 }
 
 function mapMeasurement(row: DbRow): PatientRecord["measurements"][number] {
+  const unit = readOptionalText(row, "unit");
+  const deltaLabel = readOptionalText(row, "delta_label");
   return {
     id: readText(row, "id"),
     title: readText(row, "title"),
@@ -124,11 +126,11 @@ function mapMeasurement(row: DbRow): PatientRecord["measurements"][number] {
     sourceVendor: readText(row, "source_vendor"),
     observedAt: toIsoString(row.observed_at),
     value: readNumber(row, "numeric_value"),
-    unit: readOptionalText(row, "unit"),
     interpretation: readText(row, "interpretation"),
     evidenceStatus: readText(row, "evidence_status") as PatientRecord["measurements"][number]["evidenceStatus"],
     confidenceLabel: readText(row, "confidence_label") as PatientRecord["measurements"][number]["confidenceLabel"],
-    deltaLabel: readOptionalText(row, "delta_label"),
+    ...(unit ? { unit } : {}),
+    ...(deltaLabel ? { deltaLabel } : {}),
   };
 }
 
@@ -159,6 +161,9 @@ function mapSourceDocument(row: DbRow): StoredSourceDocument {
   const storageBackend = readText(row, "storage_backend") as StoredSourceDocument["storageBackend"];
   const storageKey = readText(row, "storage_key");
   const archiveEntries = readJson<StoredArchiveEntry[]>(row, "archive_entries", []);
+  const observedAt = row.observed_at ? toIsoString(row.observed_at) : undefined;
+  const parentDocumentId = readOptionalText(row, "parent_document_id");
+  const archiveEntryPath = readOptionalText(row, "archive_entry_path");
 
   return {
     id: readText(row, "id"),
@@ -176,14 +181,15 @@ function mapSourceDocument(row: DbRow): StoredSourceDocument {
     classification: readText(row, "classification") as StoredSourceDocument["classification"],
     status: readText(row, "status") as StoredSourceDocument["status"],
     receivedAt: toIsoString(row.received_at),
-    observedAt: row.observed_at ? toIsoString(row.observed_at) : undefined,
-    parentDocumentId: readOptionalText(row, "parent_document_id"),
-    archiveEntryPath: readOptionalText(row, "archive_entry_path"),
-    archiveEntries: archiveEntries.length > 0 ? archiveEntries : undefined,
+    ...(observedAt ? { observedAt } : {}),
+    ...(parentDocumentId ? { parentDocumentId } : {}),
+    ...(archiveEntryPath ? { archiveEntryPath } : {}),
+    ...(archiveEntries.length > 0 ? { archiveEntries } : {}),
   };
 }
 
 function mapParseTask(row: DbRow): StoredParseTask {
+  const errorMessage = readOptionalText(row, "error_message");
   return {
     id: readText(row, "id"),
     patientId: readText(row, "patient_id"),
@@ -203,11 +209,15 @@ function mapParseTask(row: DbRow): StoredParseTask {
     candidates: readJson<ParsedMeasurementCandidate[]>(row, "candidates", []),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
-    errorMessage: readOptionalText(row, "error_message"),
+    ...(errorMessage ? { errorMessage } : {}),
   };
 }
 
 function mapReviewDecision(row: DbRow): StoredReviewDecision {
+  const note = readOptionalText(row, "note");
+  const proposedCanonicalCode = readOptionalText(row, "proposed_canonical_code");
+  const proposedTitle = readOptionalText(row, "proposed_title");
+  const proposedModality = readOptionalText(row, "proposed_modality") as StoredReviewDecision["proposedModality"];
   return {
     id: readText(row, "id"),
     patientId: readText(row, "patient_id"),
@@ -219,12 +229,12 @@ function mapReviewDecision(row: DbRow): StoredReviewDecision {
     candidateSourcePath: readText(row, "candidate_source_path"),
     action: readText(row, "action") as StoredReviewDecision["action"],
     reviewerName: readText(row, "reviewer_name"),
-    note: readOptionalText(row, "note"),
-    proposedCanonicalCode: readOptionalText(row, "proposed_canonical_code"),
-    proposedTitle: readOptionalText(row, "proposed_title"),
-    proposedModality: readOptionalText(row, "proposed_modality") as StoredReviewDecision["proposedModality"],
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
+    ...(note ? { note } : {}),
+    ...(proposedCanonicalCode ? { proposedCanonicalCode } : {}),
+    ...(proposedTitle ? { proposedTitle } : {}),
+    ...(proposedModality ? { proposedModality } : {}),
   };
 }
 

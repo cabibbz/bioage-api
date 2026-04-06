@@ -917,14 +917,21 @@ function textObservationFixture() {
   );
 }
 
+const deterministicZipDate = new Date("2026-01-01T00:00:00.000Z");
+
 async function zipFixture(prefix) {
   const zip = new JSZip();
-  zip.file(`labs/${prefix}-labs.csv`, csvFixture());
+  zip.file(`labs/${prefix}-labs.csv`, csvFixture(), { date: deterministicZipDate });
   zip.file(
     `notes/${prefix}-note.txt`,
     `${prefix} follow-up note: ApoB trend remains the main target after omega-3 and training changes.`,
+    { date: deterministicZipDate },
   );
-  return zip.generateAsync({ type: "nodebuffer" });
+  return zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    platform: "DOS",
+  });
 }
 
 async function main() {
