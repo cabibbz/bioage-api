@@ -43,20 +43,28 @@ Run the full project guardrail before handing off work:
 npm run verify:meta
 ```
 
-For the committed end-to-end smoke check only:
+After a full functionality update passes `npm run verify:meta` and any required Postgres checks, commit it and push it before handoff.
+
+For the committed route- and parser-matrix functional suite:
 
 ```bash
-npm run test:integration
+npm run test:functional
 ```
 
-For backend-specific smoke checks:
+The legacy `test:integration*` commands still point at the same suite.
+
+For backend-specific functional checks:
 
 ```bash
-npm run test:integration:file
-npm run test:integration:postgres
+npm run test:functional:file
+npm run test:functional:postgres
+npm run test:functional:parity
+npm run test:ui:file
 ```
 
-`npm run test:integration:postgres` resets the app tables in the configured database first, so only point it at a disposable dev database.
+`npm run test:functional:postgres` resets the app tables in the configured database before each scenario, so only point it at a disposable dev database.
+`npm run test:functional:parity` reruns the same functional scenarios against both backends and compares normalized persisted state.
+`npm run test:ui:file` drives Chromium through the clinician workbenches on `/` and verifies the persisted page state after each step. If no Playwright browser is installed yet, the script installs Chromium automatically on first run.
 
 The docs contract lives in `CONTRIBUTING.md`.
 
@@ -72,7 +80,7 @@ To apply the schema plus seed into a target database from the repo, run `npm run
 
 ## First milestones
 
-1. Validate the Postgres backend against a live local database and add a Postgres smoke path.
+1. Validate the Postgres backend against a live local database and keep the Postgres functional path green.
 2. Add object storage for source reports.
 3. Add promotion for accepted text and categorical review decisions.
 4. Add Terra wearable ingestion.

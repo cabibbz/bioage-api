@@ -2,6 +2,23 @@
 
 ## Entries
 
+### 2026-04-06
+
+- replaced the single-path integration smoke gate with a state-resetting functional suite
+- added route validation coverage for report intake, intervention intake, document intake, review, promotion, and patient fetch
+- added document-matrix coverage for FHIR bundle/resource, generic JSON, CSV, TXT, C-CDA, ZIP archives, and every review-only classification
+- added review-update and promotion-idempotence checks so the suite validates behavior instead of just happy-path persistence
+- added backend-specific functional entrypoints and pointed the session verification gate at them
+- improved API error mapping so known validation and not-found cases return `400` or `404` instead of collapsing into `500`
+- moved parser and classification declarations into a shared parser contract so runtime selection and functional coverage drift together
+- added a functional-suite coverage guard that fails when a new parser or source-document classification is declared without a matching fixture
+- added a backend parity runner that replays the same functional scenarios against file and Postgres and compares normalized persisted state
+- expanded functional coverage to include missing-resource mutation errors, invalid promotion states, and deterministic parser failure handling
+- added invariant checks that verify binary file contents match stored checksum/size metadata and that parse, review, and promotion records reference real upstream entities
+- added a browser-driven UI suite that exercises all five clinician workbenches and verifies the dashboard refreshes against persisted state
+- fixed `/` to render dynamically so UI refreshes reflect newly persisted data instead of static build-time state
+- updated the contributor workflow so fully verified functionality changes are committed and pushed to GitHub in the same pass
+
 ### 2026-04-05
 
 - created a new Next.js codebase for the longevity evidence layer

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toRouteErrorResponse } from "@/src/lib/api/route-error";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 type PromoteRequest = {
@@ -42,7 +43,6 @@ export async function POST(request: Request) {
       ],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown promotion error.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return toRouteErrorResponse(error, "Unknown promotion error.");
   }
 }

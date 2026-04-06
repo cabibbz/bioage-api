@@ -9,12 +9,18 @@
     "bootstrap:postgres": "node ./scripts/bootstrap-postgres.mjs",
     "verify:meta": "node ./scripts/meta-verify.mjs",
     "seed:postgres:export": "node ./scripts/export-postgres-seed.mjs",
-    "test:integration": "node ./scripts/integration-smoke.mjs",
-    "test:integration:file": "node ./scripts/integration-smoke.mjs",
-    "test:integration:postgres": "node ./scripts/integration-smoke-postgres.mjs",
+    "test:functional": "node ./scripts/functional-tests.mjs",
+    "test:functional:file": "node ./scripts/functional-tests.mjs",
+    "test:functional:postgres": "node ./scripts/functional-tests-postgres.mjs",
+    "test:functional:parity": "node ./scripts/functional-parity.mjs",
+    "test:ui": "node ./scripts/ui-functional.mjs",
+    "test:ui:file": "node ./scripts/ui-functional.mjs",
+    "test:integration": "npm run test:functional:file",
+    "test:integration:file": "npm run test:functional:file",
+    "test:integration:postgres": "npm run test:functional:postgres",
     "typecheck": "tsc --noEmit",
     "docs:verify": "node ./scripts/docs-verify.mjs",
-    "verify": "npm run docs:verify && npm run typecheck && npm run build && npm run test:integration:file"
+    "verify": "npm run docs:verify && npm run typecheck && npm run build && npm run test:functional:file && npm run test:ui:file"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -28,6 +34,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "playwright": "^1.59.1",
     "typescript": "latest"
   }
 }

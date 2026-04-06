@@ -1,0 +1,34 @@
+{
+  "parsers": {
+    "archive_manifest": { "mode": "deterministic" },
+    "fhir_bundle": { "mode": "deterministic" },
+    "fhir_resource": { "mode": "deterministic" },
+    "generic_json": { "mode": "deterministic" },
+    "csv_table": { "mode": "deterministic" },
+    "text_note": { "mode": "deterministic" },
+    "ccda_metadata": { "mode": "deterministic" },
+    "pdf_review": { "mode": "review" },
+    "image_review": { "mode": "review" },
+    "html_review": { "mode": "review" },
+    "spreadsheet_review": { "mode": "review" },
+    "unknown_review": { "mode": "review" }
+  },
+  "classifications": {
+    "zip_archive": { "parser": "archive_manifest" },
+    "pdf_report": { "parser": "pdf_review" },
+    "image_report": { "parser": "image_review" },
+    "json_payload": { "parser": "generic_json" },
+    "fhir_bundle": { "parser": "fhir_bundle" },
+    "fhir_resource": { "parser": "fhir_resource" },
+    "ccda_xml": { "parser": "ccda_metadata" },
+    "html_export": { "parser": "html_review" },
+    "spreadsheet": {
+      "extensionParsers": {
+        ".csv": "csv_table"
+      },
+      "defaultParser": "spreadsheet_review"
+    },
+    "text_note": { "parser": "text_note" },
+    "unknown": { "parser": "unknown_review" }
+  }
+}

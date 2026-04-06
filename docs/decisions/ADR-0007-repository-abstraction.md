@@ -27,4 +27,4 @@ Costs:
 
 - there is now one more abstraction layer to maintain
 - the Postgres backend is still a stub and not production-ready
-- repository drift must be controlled with docs and smoke tests
+- repository drift must be controlled with docs and functional tests

@@ -41,6 +41,8 @@ export function classifySourceDocument(input: {
   const extension = normalizeExtension(input.filename);
   const mimeType = normalizeMimeType(input.mimeType);
   const text = previewText(input.bytes);
+  const isXmlMime =
+    mimeType === "application/xml" || mimeType === "text/xml" || mimeType.endsWith("+xml");
 
   if (extension === ".zip" || mimeType.includes("zip")) {
     return "zip_archive";
@@ -61,7 +63,16 @@ export function classifySourceDocument(input: {
     return classifyJson(text);
   }
 
-  if (extension === ".xml" || mimeType.includes("xml")) {
+  if (
+    [".csv", ".xls", ".xlsx"].includes(extension) ||
+    mimeType.includes("csv") ||
+    mimeType === "application/vnd.ms-excel" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ) {
+    return "spreadsheet";
+  }
+
+  if (extension === ".xml" || isXmlMime) {
     if (text.includes("ClinicalDocument")) {
       return "ccda_xml";
     }
@@ -71,10 +82,6 @@ export function classifySourceDocument(input: {
 
   if (extension === ".html" || extension === ".htm" || mimeType.includes("html")) {
     return "html_export";
-  }
-
-  if ([".csv", ".xls", ".xlsx"].includes(extension)) {
-    return "spreadsheet";
   }
 
   if (extension === ".txt") {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toRouteErrorResponse } from "@/src/lib/api/route-error";
 import { normalizeReportPayload } from "@/src/lib/normalization/normalize";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
@@ -91,7 +92,6 @@ export async function POST(request: Request) {
       ],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown persistence error.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return toRouteErrorResponse(error, "Unknown persistence error.");
   }
 }

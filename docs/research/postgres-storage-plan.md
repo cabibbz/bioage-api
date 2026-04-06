@@ -83,10 +83,10 @@ The app layer resolves a repository through `getEvidenceRepository()`, and the P
 - `scripts/bootstrap-postgres.mjs`
 - `scripts/export-postgres-seed.mjs`
 
-The file store remains the default and the committed smoke harness still validates that path first.
+The file store remains the default and the committed functional suite still validates that path first.
 
 ## What I'd Do Next
 
-1. Run the committed workflow against a disposable local Postgres database and add a Postgres smoke harness.
+1. Run the committed workflow against a disposable local Postgres database and keep the Postgres functional suite green.
 2. Move source binary writes to a real object-storage backend while keeping `storageKey` and checksum semantics stable.
 3. Add a bootstrap utility that applies schema plus seed safely from `data/store.json` for environment setup.

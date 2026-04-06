@@ -1,0 +1,273 @@
+import assert from "node:assert/strict";
+import path from "node:path";
+import os from "node:os";
+import { mkdtemp, readdir, rm, copyFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { chromium } from "playwright";
+
+const repoRoot = process.cwd();
+const patientId = "pt_001";
+const storePath = path.join(repoRoot, "data", "store.json");
+const uploadsPath = path.join(repoRoot, "data", "uploads");
+const nextCli = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
+const port = Number(process.env.UI_FUNCTIONAL_PORT?.trim() || "3160");
+const baseUrl = `http://127.0.0.1:${port}`;
+
+function log(step, detail) {
+  console.log(`[ui-functional:file] ${step}: ${detail}`);
+}
+
+async function waitForServer() {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      const response = await fetch(`${baseUrl}/api/patients/${patientId}`);
+      if (response.ok) {
+        return;
+      }
+    } catch {}
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  throw new Error("Server did not become ready in time.");
+}
+
+async function listUploadFiles() {
+  try {
+    const entries = await readdir(uploadsPath);
+    return entries.filter((entry) => entry !== ".gitkeep").sort();
+  } catch {
+    return [];
+  }
+}
+
+async function resetUploads(baselineUploads) {
+  const currentUploads = await listUploadFiles();
+  const staleUploads = currentUploads.filter((file) => !baselineUploads.includes(file));
+  await Promise.all(staleUploads.map((file) => rm(path.join(uploadsPath, file), { force: true })));
+}
+
+async function prepareFileBackend(tempDir, baselineUploads) {
+  const backupPath = path.join(tempDir, "store.backup.json");
+  await copyFile(storePath, backupPath);
+  await resetUploads(baselineUploads);
+
+  return {
+    async cleanup() {
+      await copyFile(backupPath, storePath);
+      await resetUploads(baselineUploads);
+    },
+  };
+}
+
+async function run(command, args) {
+  const useShell = process.platform === "win32";
+  const label = [command, ...args].join(" ");
+
+  await new Promise((resolve, reject) => {
+    const child = spawn(useShell ? label : command, useShell ? [] : args, {
+      cwd: repoRoot,
+      shell: useShell,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        NEXT_TELEMETRY_DISABLED: "1",
+      },
+    });
+
+    child.on("exit", (code, signal) => {
+      if (signal) {
+        reject(new Error(`${label} exited from signal ${signal}`));
+        return;
+      }
+
+      if (code !== 0) {
+        reject(new Error(`${label} exited with code ${code}`));
+        return;
+      }
+
+      resolve(undefined);
+    });
+  });
+}
+
+async function launchBrowser() {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("Executable doesn't exist")) {
+      throw error;
+    }
+
+    log("browser", "installing Chromium because no Playwright browser was found");
+    await run(process.platform === "win32" ? "npx.cmd" : "npx", ["playwright", "install", "chromium"]);
+    return chromium.launch({ headless: true });
+  }
+}
+
+function sectionByHeading(page, heading) {
+  return page.getByRole("heading", { name: heading, exact: true }).locator("xpath=ancestor::section[1]");
+}
+
+async function refreshDashboard(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Upload a source file", exact: true }).waitFor();
+}
+
+async function waitForSelectOptionContaining(selectLocator, text) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const options = await selectLocator.locator("option").allTextContents();
+    if (options.some((option) => option.includes(text))) {
+      return;
+    }
+
+    await selectLocator.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for select option containing "${text}".`);
+}
+
+function csvFixture() {
+  return Buffer.from(
+    [
+      "name,result,unit,loinc,observed_at",
+      "ApoB,78,mg/dL,1884-6,2026-04-01T08:00:00.000Z",
+      "C-Reactive Protein,1.1,mg/L,1988-5,2026-04-01T08:00:00.000Z",
+    ].join("\n"),
+  );
+}
+
+async function main() {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "longevity-ui-functional-"));
+  const baselineUploads = await listUploadFiles();
+  const backend = await prepareFileBackend(tempDir, baselineUploads);
+
+  const server = spawn(process.execPath, [nextCli, "start", "--port", String(port)], {
+    cwd: repoRoot,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      NEXT_TELEMETRY_DISABLED: "1",
+      PERSISTENCE_BACKEND: "file",
+    },
+  });
+
+  let stdout = "";
+  let stderr = "";
+
+  server.stdout.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+
+  server.stderr.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+
+  let browser;
+
+  try {
+    await waitForServer();
+    browser = await launchBrowser();
+    log("server", "ready");
+
+    const page = await browser.newPage();
+    await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+
+    await page.getByRole("heading", { name: "Upload a source file", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Report intake and normalization", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Tag a protocol change", exact: true }).waitFor();
+    log("page", "workbenches rendered");
+
+    const sourceDocumentsSection = sectionByHeading(page, "Stored source documents");
+    const parseTasksSection = sectionByHeading(page, "Document parse tasks");
+    const timelineSection = sectionByHeading(page, "Interventions and evidence windows");
+    const documentSection = sectionByHeading(page, "Upload a source file");
+    const reviewSection = sectionByHeading(page, "Adjudicate parser candidates");
+    const promotionSection = sectionByHeading(page, "Promote accepted decisions");
+    const reportSection = sectionByHeading(page, "Report intake and normalization");
+    const interventionSection = sectionByHeading(page, "Tag a protocol change");
+
+    const documentFilename = "ui-functional.csv";
+    await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("UI functional upload");
+    await documentSection.locator('input[type="file"]').setInputFiles({
+      name: documentFilename,
+      mimeType: "text/csv",
+      buffer: csvFixture(),
+    });
+    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    await documentSection.locator("pre").filter({ hasText: `"originalFilename": "${documentFilename}"` }).waitFor();
+    await refreshDashboard(page);
+    await sourceDocumentsSection.getByText(documentFilename, { exact: true }).waitFor();
+    await parseTasksSection.getByText(documentFilename, { exact: true }).waitFor();
+    await parseTasksSection.getByText("csv_table", { exact: true }).waitFor();
+    log("document", "uploaded CSV through the UI and observed parser task on the page");
+
+    const parseTaskSelect = reviewSection.locator("select").nth(0);
+    const candidateSelect = reviewSection.locator("select").nth(1);
+    await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
+    await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
+    await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
+    await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
+    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician");
+    await reviewSection.locator("label").filter({ hasText: "Proposed canonical mapping" }).locator("select").selectOption("apob");
+    await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill("UI review path accepted for promotion.");
+    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await reviewSection.locator("pre").filter({ hasText: '"action": "accept"' }).waitFor();
+    await refreshDashboard(page);
+    await reviewSection.getByText("UI clinician").waitFor();
+    await parseTasksSection.getByText("1 reviewed").waitFor();
+    log("review", "accepted and mapped a parser candidate through the UI");
+
+    const promotionSelect = promotionSection.locator("select").first();
+    await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
+    await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
+    await promotionSection.locator("pre").filter({ hasText: '"canonicalCode": "apob"' }).waitFor();
+    await refreshDashboard(page);
+    await promotionSection.getByText("ApoB", { exact: true }).waitFor();
+    await timelineSection.getByText("ApoB promoted into canonical record").waitFor();
+    log("promotion", "promoted the accepted review decision through the UI");
+
+    await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
+    await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
+    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 3' }).waitFor();
+    await refreshDashboard(page);
+    await timelineSection.getByText("Hurdle report normalized").waitFor();
+    log("report", "ran report normalization through the UI");
+
+    await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI intervention checkpoint");
+    await interventionSection.locator("label").filter({ hasText: "Detail" }).locator("textarea").fill(
+      "Added a UI-level intervention event to confirm timeline refresh behavior.",
+    );
+    await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
+    await interventionSection.locator("pre").filter({ hasText: '"totalTimelineEvents"' }).waitFor();
+    await refreshDashboard(page);
+    await timelineSection.getByText("UI intervention checkpoint").waitFor();
+    log("intervention", "saved an intervention through the UI");
+
+    const patientResponse = await page.context().request.get(`${baseUrl}/api/patients/${patientId}`);
+    assert.equal(patientResponse.ok(), true);
+    const snapshot = await patientResponse.json();
+    assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === documentFilename));
+    assert.ok(snapshot.reviewDecisions.some((decision) => decision.reviewerName === "UI clinician"));
+    assert.ok(snapshot.measurementPromotions.some((promotion) => promotion.canonicalCode === "apob"));
+    assert.ok(snapshot.reportIngestions.some((ingestion) => ingestion.vendor === "Hurdle"));
+    assert.ok(snapshot.patient.timeline.some((event) => event.title === "UI intervention checkpoint"));
+    log("verification", "page interactions and persisted state matched");
+  } finally {
+    await browser?.close();
+    server.kill("SIGTERM");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await backend.cleanup();
+    await rm(tempDir, { recursive: true, force: true });
+
+    if (server.exitCode !== null && server.exitCode !== 0) {
+      throw new Error(`Server exited with code ${server.exitCode}\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
+    }
+  }
+}
+
+main().catch((error) => {
+  console.error(`[ui-functional:file] failed: ${error instanceof Error ? error.stack : String(error)}`);
+  process.exit(1);
+});

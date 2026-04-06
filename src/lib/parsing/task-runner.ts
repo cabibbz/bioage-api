@@ -1,4 +1,5 @@
 import path from "node:path";
+import parserContractJson from "@/src/lib/parsing/parser-contract.json";
 import { randomUUID } from "node:crypto";
 import {
   ParseTaskMetadataItem,
@@ -26,13 +27,24 @@ type ParseTaskDraft = Omit<
 
 type GenericRecord = Record<string, unknown>;
 
-const reviewOnlyParsers = new Set<ParseTaskParser>([
-  "pdf_review",
-  "image_review",
-  "html_review",
-  "spreadsheet_review",
-  "unknown_review",
-]);
+type ParserContract = {
+  parsers: Record<ParseTaskParser, { mode: StoredParseTask["mode"] }>;
+  classifications: Record<
+    StoredSourceDocument["classification"],
+    {
+      parser?: ParseTaskParser;
+      extensionParsers?: Record<string, ParseTaskParser>;
+      defaultParser?: ParseTaskParser;
+    }
+  >;
+};
+
+const parserContract = parserContractJson as ParserContract;
+const reviewOnlyParsers = new Set<ParseTaskParser>(
+  Object.entries(parserContract.parsers)
+    .filter(([, definition]) => definition.mode === "review")
+    .map(([parser]) => parser as ParseTaskParser),
+);
 
 function buildBaseTask(context: ParseContext, parser: ParseTaskParser, now: string): StoredParseTask {
   return {
@@ -169,32 +181,26 @@ function buildReviewTask(context: ParseContext, parser: ParseTaskParser): ParseT
 }
 
 function selectParser(document: StoredSourceDocument): ParseTaskParser {
-  switch (document.classification) {
-    case "zip_archive":
-      return "archive_manifest";
-    case "fhir_bundle":
-      return "fhir_bundle";
-    case "fhir_resource":
-      return "fhir_resource";
-    case "json_payload":
-      return "generic_json";
-    case "ccda_xml":
-      return "ccda_metadata";
-    case "text_note":
-      return "text_note";
-    case "pdf_report":
-      return "pdf_review";
-    case "image_report":
-      return "image_review";
-    case "html_export":
-      return "html_review";
-    case "spreadsheet":
-      return extensionOf(document.originalFilename) === ".csv" ? "csv_table" : "spreadsheet_review";
-    case "unknown":
-      return "unknown_review";
-    default:
-      return "unknown_review";
+  const contract = parserContract.classifications[document.classification];
+
+  if (!contract) {
+    throw new Error(`No parser contract exists for classification ${document.classification}.`);
   }
+
+  const extension = extensionOf(document.originalFilename);
+  if (contract.extensionParsers?.[extension]) {
+    return contract.extensionParsers[extension];
+  }
+
+  if (contract.parser) {
+    return contract.parser;
+  }
+
+  if (contract.defaultParser) {
+    return contract.defaultParser;
+  }
+
+  throw new Error(`Parser contract for classification ${document.classification} is incomplete.`);
 }
 
 function parseMaybeNumber(value: string | undefined) {

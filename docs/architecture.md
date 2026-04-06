@@ -5,6 +5,7 @@
 Current system shape:
 
 - Next.js app router frontend and API routes
+- the dashboard route is intentionally dynamic so clinician refreshes reflect newly persisted state
 - repository abstraction with a file-backed default backend and implemented Postgres backend
 - binary-storage abstraction with a local filesystem default backend
 - normalization layer that maps vendor/source fields into canonical concepts
@@ -20,7 +21,7 @@ Current non-goals:
 
 - no authentication yet
 - no object storage yet
-- no committed live-Postgres smoke path yet
+- no always-on live-Postgres verification environment yet
 - no EHR integration yet
 - no lab/wearable live connectors yet
 - no field-level review decisions yet
@@ -44,7 +45,7 @@ Current non-goals:
 
 ## Near-Term Architecture Gaps
 
-- add a committed live-Postgres smoke path and migration bootstrap
+- keep the live-Postgres functional path exercised against a disposable database
 - move source report binaries into object storage with checksums
 - add field-level review queues for unmapped metrics
 - separate source ingestion from clinician-facing projections

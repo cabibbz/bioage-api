@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toRouteErrorResponse } from "@/src/lib/api/route-error";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 export async function POST(request: Request) {
@@ -51,14 +52,13 @@ export async function POST(request: Request) {
               "Map safe candidate measurements into clinician review flows.",
               "Add recursive handling for nested archives only if design partners need it.",
             ]
-          : [
-              "Review the parse task summary and candidate measurements.",
-              "Store field-level review decisions separately from the source file.",
-              "Promote structured values into canonical measurements only after review.",
-            ],
+      : [
+          "Review the parse task summary and candidate measurements.",
+          "Store field-level review decisions separately from the source file.",
+          "Promote structured values into canonical measurements only after review.",
+        ],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown document persistence error.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return toRouteErrorResponse(error, "Unknown document persistence error.");
   }
 }

@@ -27,10 +27,14 @@ Minimum expectation:
 - run docs verification
 - run typecheck
 - run production build
-- run the file-backed integration smoke
-- run the Postgres smoke too whenever `DATABASE_URL` is configured
+- run the file-backed functional suite
+- run the file-backed browser UI suite
+- run the Postgres functional suite too whenever `DATABASE_URL` is configured
+- run the backend parity suite too whenever `DATABASE_URL` is configured
 
 If Postgres is available for the session, the session is not complete until the Postgres path has been exercised.
+
+Once a full functionality update is confirmed by `npm run verify:meta` and any required Postgres checks, commit it and push it to GitHub in the same pass. Do not leave fully verified functionality sitting only in the local worktree.
 
 ## Compaction Rule
 
@@ -49,7 +53,8 @@ If a future contributor could not safely resume from the compact snapshot plus t
 1. Make the code change.
 2. Update the relevant docs in the same pass.
 3. Run `npm run verify:meta`.
-4. Hand off with current risks and next moves called out explicitly.
+4. Commit and push the verified change to GitHub.
+5. Hand off with current risks and next moves called out explicitly.
 
 ## Scope Rule
 

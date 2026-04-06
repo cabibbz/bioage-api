@@ -40,6 +40,10 @@ Recent verified flows:
 - a live review probe accepted a FHIR candidate, increased stored review decisions from `0` to `1`, and increased timeline events from `4` to `6`
 - accepted numeric review decisions can now be promoted through `/api/review/promote`
 - a live promotion probe promoted a reviewed CSV ApoB candidate and increased stored measurements from `4` to `5`
+- the committed functional suite now resets state between scenarios and exercises every API route plus every registered parser/review classification
+- parser selection now comes from a shared contract at `src/lib/parsing/parser-contract.json`, and the functional suite fails if that contract grows without new fixtures
+- the suite now also exercises missing-resource route behavior, invalid promotion states, and deterministic parser failure handling
+- after each scenario it also verifies storage and graph integrity: binary files match metadata, and parse/review/promotion records reference valid upstream entities
 
 ## Verification
 
@@ -55,14 +59,32 @@ This runs:
 - TypeScript validation
 - production build
 - SQL seed export
-- committed file-backed smoke flow across report intake, intervention intake, document intake, review, and promotion
-- Postgres bootstrap plus Postgres smoke flow when `DATABASE_URL` is configured
+- committed file-backed functional coverage across route validation, report intake, intervention intake, review, promotion, and every document/parser classification
+- committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
+- Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
+- backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
-For the smoke flow only:
+For the functional suite only:
 
 ```bash
-npm run test:integration
+npm run test:functional
 ```
+
+Legacy `npm run test:integration*` aliases still call the same suite.
+
+For backend parity only:
+
+```bash
+npm run test:functional:parity
+```
+
+For browser-driven UI coverage only:
+
+```bash
+npm run test:ui:file
+```
+
+The UI script installs Playwright Chromium automatically on first run if it is missing.
 
 To export the current JSON seed into SQL inserts for the Postgres target:
 
@@ -86,10 +108,10 @@ For a repo-driven bootstrap against a configured database:
 ```bash
 npm run seed:postgres:export
 npm run bootstrap:postgres
-npm run test:integration:postgres
+npm run test:functional:postgres
 ```
 
-`npm run test:integration:postgres` resets the app tables before reseeding, so use a disposable dev database.
+`npm run test:functional:postgres` resets the app tables before every scenario, so use a disposable dev database.
 
 ## Known Gaps
 
@@ -102,6 +124,9 @@ npm run test:integration:postgres
 - object storage is still a stub behind the storage adapter
 - full session verification only exercises Postgres when `DATABASE_URL` is configured
 - the bootstrap script is additive only and does not reset a database
-- the Postgres smoke test is destructive against the app tables in the configured database
+- the Postgres functional suite is destructive against the app tables in the configured database
 - PDF, image, HTML, and XLS/XLSX formats remain review-only
 - ZIP ingestion does not yet recurse into nested archives
+- the functional suite still verifies API behavior, not browser UI interaction fidelity
+- backend parity is only checked when `DATABASE_URL` is configured
+- the committed browser suite currently covers the file-backed path only

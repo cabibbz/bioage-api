@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toRouteErrorResponse } from "@/src/lib/api/route-error";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 type ReviewDecisionRequest = {
@@ -61,14 +62,13 @@ export async function POST(request: Request) {
               "Keep review and promotion audit trails separate from the source file.",
               "Track acceptance rates by parser and source system.",
             ]
-          : [
-              "Preserve the rejected or follow-up decision for auditability.",
-              "Use note text to refine parser heuristics or mapping rules.",
-              "Do not promote this candidate until a later review changes the decision.",
-            ],
+      : [
+          "Preserve the rejected or follow-up decision for auditability.",
+          "Use note text to refine parser heuristics or mapping rules.",
+          "Do not promote this candidate until a later review changes the decision.",
+        ],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown review persistence error.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return toRouteErrorResponse(error, "Unknown review persistence error.");
   }
 }

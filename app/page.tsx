@@ -1,6 +1,8 @@
 import { AppShell } from "@/src/components/app-shell";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const repository = getEvidenceRepository();
   const patient = await repository.getPatientRecord("pt_001");

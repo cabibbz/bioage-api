@@ -42,18 +42,20 @@ async function main() {
   await run("node", ["--check", "scripts/bootstrap-postgres.mjs"]);
   await run("npm.cmd", ["run", "build"]);
   await run("npm.cmd", ["run", "seed:postgres:export"]);
-  await run("npm.cmd", ["run", "test:integration:file"]);
+  await run("npm.cmd", ["run", "test:functional:file"]);
+  await run("npm.cmd", ["run", "test:ui:file"]);
 
   const databaseUrl = process.env.DATABASE_URL?.trim();
   const requirePostgres = process.env.META_VERIFY_REQUIRE_POSTGRES === "1";
 
   if (databaseUrl) {
     await run("npm.cmd", ["run", "bootstrap:postgres"]);
-    await run("npm.cmd", ["run", "test:integration:postgres"]);
+    await run("npm.cmd", ["run", "test:functional:postgres"]);
+    await run("npm.cmd", ["run", "test:functional:parity"]);
   } else if (requirePostgres) {
     throw new Error("DATABASE_URL is required because META_VERIFY_REQUIRE_POSTGRES=1.");
   } else {
-    log("skipping Postgres smoke because DATABASE_URL is not set.");
+    log("skipping Postgres functional suite because DATABASE_URL is not set.");
   }
 
   log("session verification passed.");
