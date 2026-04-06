@@ -41,6 +41,7 @@ Recent verified flows:
 - accepted numeric review decisions can now be promoted through `/api/review/promote`
 - a live promotion probe promoted a reviewed CSV ApoB candidate and increased stored measurements from `4` to `5`
 - the committed functional suite now resets state between scenarios and exercises every API route plus every registered parser/review classification
+- the functional suite now discovers exported API route methods under `app/api` and fails if any route lacks a claiming scenario
 - parser selection now comes from a shared contract at `src/lib/parsing/parser-contract.json`, and the functional suite fails if that contract grows without new fixtures
 - the suite now also exercises missing-resource route behavior, invalid promotion states, and deterministic parser failure handling
 - after each scenario it also verifies storage and graph integrity: binary files match metadata, and parse/review/promotion records reference valid upstream entities

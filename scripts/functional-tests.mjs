@@ -12,6 +12,7 @@ const backend = process.env.PERSISTENCE_BACKEND?.trim().toLowerCase() === "postg
 const patientId = process.env.FUNCTIONAL_TEST_PATIENT_ID?.trim() || "pt_001";
 const storePath = path.join(repoRoot, "data", "store.json");
 const uploadsPath = path.join(repoRoot, "data", "uploads");
+const apiRoutesPath = path.join(repoRoot, "app", "api");
 const nextCli = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
 const parserContractPath = path.join(repoRoot, "src", "lib", "parsing", "parser-contract.json");
 const port = Number(
@@ -28,6 +29,10 @@ function log(step, detail) {
 
 function extensionOf(filename) {
   return path.extname(filename).toLowerCase();
+}
+
+function normalizePathSeparators(value) {
+  return value.replaceAll("\\", "/");
 }
 
 function resolveParserForClassification(classification, filename) {
@@ -54,6 +59,58 @@ function resolveModeForParser(parser) {
   const definition = parserContract.parsers[parser];
   assert.ok(definition, `No parser definition exists for parser ${parser}`);
   return definition.mode;
+}
+
+async function collectApiRouteFiles(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const routeFiles = [];
+
+  for (const entry of entries) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      routeFiles.push(...(await collectApiRouteFiles(entryPath)));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name === "route.ts") {
+      routeFiles.push(entryPath);
+    }
+  }
+
+  return routeFiles;
+}
+
+function routePathFromFile(routeFilePath) {
+  const relativeDirectory = normalizePathSeparators(path.relative(apiRoutesPath, path.dirname(routeFilePath)));
+  return relativeDirectory ? `/api/${relativeDirectory}` : "/api";
+}
+
+async function discoverApiRouteMethods() {
+  const routeFiles = (await collectApiRouteFiles(apiRoutesPath)).sort();
+  const discoveredRouteMethods = [];
+
+  for (const routeFile of routeFiles) {
+    const source = await readFile(routeFile, "utf8");
+    const methods = new Set();
+
+    for (const pattern of [
+      /\bexport\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\b/g,
+      /\bexport\s+const\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\b/g,
+    ]) {
+      for (const match of source.matchAll(pattern)) {
+        methods.add(match[1]);
+      }
+    }
+
+    assert.ok(methods.size > 0, `No route methods were discovered in ${normalizePathSeparators(path.relative(repoRoot, routeFile))}.`);
+
+    const routePath = routePathFromFile(routeFile);
+    for (const method of [...methods].sort()) {
+      discoveredRouteMethods.push(`${method} ${routePath}`);
+    }
+  }
+
+  return discoveredRouteMethods.sort();
 }
 
 function countSnapshot(snapshot) {
@@ -819,6 +876,7 @@ async function runScenario(name, backendController, run) {
 const scenarios = [
   {
     name: "patient-route-contract",
+    covers: ["GET /api/patients/[patientId]"],
     async run() {
       const snapshot = await getPatientSnapshot();
       assert.equal(snapshot.patient.id, patientId);
@@ -836,6 +894,7 @@ const scenarios = [
   },
   {
     name: "report-intake-validation",
+    covers: ["POST /api/intake/report"],
     async run() {
       const invalidJson = await postRawJson("/api/intake/report", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -853,6 +912,7 @@ const scenarios = [
   },
   {
     name: "report-intake-state-transition",
+    covers: ["POST /api/intake/report"],
     async run() {
       const before = await getPatientSnapshot();
       const report = await postJson("/api/intake/report", {
@@ -890,6 +950,7 @@ const scenarios = [
   },
   {
     name: "report-intake-missing-patient",
+    covers: ["POST /api/intake/report"],
     async run() {
       const missingPatient = await postJson(
         "/api/intake/report",
@@ -907,6 +968,7 @@ const scenarios = [
   },
   {
     name: "intervention-validation",
+    covers: ["POST /api/intake/intervention"],
     async run() {
       const invalidJson = await postRawJson("/api/intake/intervention", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -917,6 +979,7 @@ const scenarios = [
   },
   {
     name: "intervention-state-transition",
+    covers: ["POST /api/intake/intervention"],
     async run() {
       const before = await getPatientSnapshot();
       const intervention = await postJson("/api/intake/intervention", {
@@ -938,6 +1001,7 @@ const scenarios = [
   },
   {
     name: "intervention-missing-patient",
+    covers: ["POST /api/intake/intervention"],
     async run() {
       const missingPatient = await postJson(
         "/api/intake/intervention",
@@ -955,6 +1019,7 @@ const scenarios = [
   },
   {
     name: "document-validation",
+    covers: ["POST /api/intake/document"],
     async run() {
       const missingFields = await postMultipart(
         "/api/intake/document",
@@ -969,6 +1034,7 @@ const scenarios = [
   },
   {
     name: "document-missing-patient",
+    covers: ["POST /api/intake/document"],
     async run() {
       const missingPatient = await postMultipart(
         "/api/intake/document",
@@ -985,6 +1051,7 @@ const scenarios = [
   },
   {
     name: "document-parse-failed-json",
+    covers: ["POST /api/intake/document"],
     async run() {
       const before = await getPatientSnapshot();
       const upload = await postMultipart("/api/intake/document", {
@@ -1016,6 +1083,7 @@ const scenarios = [
   },
   ...documentScenarios.map((fixture) => ({
     name: `document-${fixture.name}`,
+    covers: ["POST /api/intake/document"],
     async run() {
       const before = await getPatientSnapshot();
       const upload = await uploadDocumentFixture(fixture);
@@ -1081,6 +1149,7 @@ const scenarios = [
   })),
   {
     name: "review-validation-and-errors",
+    covers: ["POST /api/review/decision"],
     async run() {
       const invalidJson = await postRawJson("/api/review/decision", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -1127,6 +1196,7 @@ const scenarios = [
   },
   {
     name: "review-decision-create-and-update",
+    covers: ["POST /api/review/decision"],
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
@@ -1189,6 +1259,7 @@ const scenarios = [
   },
   {
     name: "promotion-validation-and-idempotence",
+    covers: ["POST /api/review/promote"],
     async run() {
       const invalidJson = await postRawJson("/api/review/promote", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -1249,6 +1320,7 @@ const scenarios = [
   },
   {
     name: "promotion-rejects-non-accepted-decisions",
+    covers: ["POST /api/review/promote"],
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
@@ -1279,6 +1351,7 @@ const scenarios = [
   },
   {
     name: "promotion-rejects-accepted-decisions-without-mapping",
+    covers: ["POST /api/review/promote"],
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
@@ -1309,6 +1382,7 @@ const scenarios = [
   },
   {
     name: "promotion-rejects-non-numeric-candidates",
+    covers: ["POST /api/review/promote"],
     async run() {
       const upload = await postMultipart("/api/intake/document", {
         patientId,
@@ -1348,6 +1422,23 @@ const scenarios = [
   },
 ];
 
+async function assertApiRouteCoverage() {
+  scenarios.forEach((scenario) => {
+    assert.ok(
+      Array.isArray(scenario.covers) && scenario.covers.length > 0,
+      `Scenario ${scenario.name} must declare the route methods it covers.`,
+    );
+  });
+
+  const coveredRouteMethods = [...new Set(scenarios.flatMap((scenario) => scenario.covers))].sort();
+  const discoveredRouteMethods = await discoverApiRouteMethods();
+  assert.deepEqual(
+    coveredRouteMethods,
+    discoveredRouteMethods,
+    "Functional scenarios must claim every exported API route method under app/api.",
+  );
+}
+
 async function main() {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), `longevity-functional-${backend}-`));
   const baselineUploads = await listUploadFiles();
@@ -1376,6 +1467,7 @@ async function main() {
   });
 
   try {
+    await assertApiRouteCoverage();
     await waitForServer();
     log("server", "ready");
 

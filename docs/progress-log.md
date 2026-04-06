@@ -18,6 +18,7 @@
 - added a browser-driven UI suite that exercises all five clinician workbenches and verifies the dashboard refreshes against persisted state
 - fixed `/` to render dynamically so UI refreshes reflect newly persisted data instead of static build-time state
 - updated the contributor workflow so fully verified functionality changes are committed and pushed to GitHub in the same pass
+- added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 
 ### 2026-04-05
 
