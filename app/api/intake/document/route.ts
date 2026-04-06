@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
-import { readOptionalString, readRequiredString } from "@/src/lib/api/validation";
+import { isValidIsoTimestamp, readOptionalString, readRequiredString } from "@/src/lib/api/validation";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 export async function POST(request: Request) {
@@ -16,6 +16,13 @@ export async function POST(request: Request) {
   if (!normalizedPatientId || !normalizedSourceSystem || !(file instanceof File)) {
     return NextResponse.json(
       { error: "patientId, sourceSystem, and file are required." },
+      { status: 400 },
+    );
+  }
+
+  if (normalizedObservedAt && !isValidIsoTimestamp(normalizedObservedAt)) {
+    return NextResponse.json(
+      { error: "observedAt must be a valid ISO-8601 timestamp." },
       { status: 400 },
     );
   }

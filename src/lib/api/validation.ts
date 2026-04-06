@@ -15,3 +15,13 @@ export function readOptionalString(value: unknown): string | undefined {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
+
+const isoTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+export function isValidIsoTimestamp(value: string): boolean {
+  if (!isoTimestampPattern.test(value)) {
+    return false;
+  }
+
+  return !Number.isNaN(new Date(value).getTime());
+}

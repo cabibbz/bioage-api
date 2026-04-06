@@ -980,6 +980,18 @@ const scenarios = [
         400,
       );
       assert.equal(invalidEntries.error, "entries must be an array.");
+
+      const invalidObservedAt = await postJson(
+        "/api/intake/report",
+        {
+          patientId,
+          vendor: "Functional",
+          observedAt: "not-a-timestamp",
+          entries: [],
+        },
+        400,
+      );
+      assert.equal(invalidObservedAt.error, "observedAt must be a valid ISO-8601 timestamp.");
     },
   },
   {
@@ -1062,6 +1074,18 @@ const scenarios = [
         400,
       );
       assert.equal(blankFields.error, "patientId, title, detail, and occurredAt are required.");
+
+      const invalidOccurredAt = await postJson(
+        "/api/intake/intervention",
+        {
+          patientId,
+          title: "Functional intervention",
+          detail: "Added magnesium glycinate and tightened the sleep window.",
+          occurredAt: "not-a-timestamp",
+        },
+        400,
+      );
+      assert.equal(invalidOccurredAt.error, "occurredAt must be a valid ISO-8601 timestamp.");
     },
   },
   {
@@ -1131,6 +1155,18 @@ const scenarios = [
         400,
       );
       assert.equal(blankFields.error, "patientId, sourceSystem, and file are required.");
+
+      const invalidObservedAt = await postMultipart(
+        "/api/intake/document",
+        {
+          patientId,
+          sourceSystem: "Functional document validation",
+          observedAt: "not-a-timestamp",
+          file: new File([createTextFixture()], "functional-note.txt", { type: "text/plain" }),
+        },
+        400,
+      );
+      assert.equal(invalidObservedAt.error, "observedAt must be a valid ISO-8601 timestamp.");
     },
   },
   {

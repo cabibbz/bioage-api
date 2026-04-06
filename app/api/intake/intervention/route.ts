@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
-import { readRequiredString } from "@/src/lib/api/validation";
+import { isValidIsoTimestamp, readRequiredString } from "@/src/lib/api/validation";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 type InterventionBody = {
@@ -32,6 +32,13 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "patientId, title, detail, and occurredAt are required." },
+      { status: 400 },
+    );
+  }
+
+  if (!isValidIsoTimestamp(occurredAt)) {
+    return NextResponse.json(
+      { error: "occurredAt must be a valid ISO-8601 timestamp." },
       { status: 400 },
     );
   }

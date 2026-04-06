@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
-import { readOptionalString, readRequiredString } from "@/src/lib/api/validation";
+import { isValidIsoTimestamp, readOptionalString, readRequiredString } from "@/src/lib/api/validation";
 import { normalizeReportPayload } from "@/src/lib/normalization/normalize";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
@@ -44,6 +44,13 @@ export async function POST(request: Request) {
   if (!patientId || !vendor) {
     return NextResponse.json(
       { error: "patientId and vendor are required." },
+      { status: 400 },
+    );
+  }
+
+  if (observedAt && !isValidIsoTimestamp(observedAt)) {
+    return NextResponse.json(
+      { error: "observedAt must be a valid ISO-8601 timestamp." },
       { status: 400 },
     );
   }

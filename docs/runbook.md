@@ -99,6 +99,7 @@ This runs:
 - promoted review decisions are now immutable: the API suite verifies post-promotion review-save attempts fail with `400` and leave persisted state unchanged, while the browser suite verifies promoted candidates disappear from the editable review queue
 - the report workbench now returns stable client-side errors for malformed JSON and non-array entries before issuing a request, and the browser suite verifies both local guards
 - the intervention workbench now returns stable client-side errors for blank title/detail and blank or invalid dates before issuing a request, and the browser suite verifies all three local guards
+- report, intervention, and document intake routes now also reject malformed backend timestamp fields, and the functional suite verifies invalid `observedAt` and `occurredAt` payloads directly
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
