@@ -188,6 +188,11 @@ function resolveContextualQualitativeValue(qualitativeKey: string) {
     },
     {
       pattern:
+        /^(?:repeat\s+)?(?:screen|screening|qualitative|assay|screening assay|qualitative assay)\s+(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)(?:\s+result)?$/,
+      baseGroup: 1,
+    },
+    {
+      pattern:
         /^(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)\s+for\s+(?:repeat\s+)?(?:screen|screening|qualitative|assay|screening assay|qualitative assay)(?:\s+result)?$/,
       baseGroup: 1,
     },
