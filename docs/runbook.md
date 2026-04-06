@@ -59,7 +59,7 @@ This runs:
 - docs verification
 - TypeScript validation
 - production build
-- SQL seed export
+- SQL seed drift check against `db/seed-from-store.sql` without rewriting the tracked file
 - committed file-backed functional coverage across route validation, report intake, intervention intake, review, promotion, and every document/parser classification
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
@@ -98,6 +98,12 @@ npm run seed:postgres:export
 This writes:
 
 - `db/seed-from-store.sql`
+
+For a non-mutating drift check instead:
+
+```bash
+npm run seed:postgres:check
+```
 
 For a manual local Postgres bootstrap:
 

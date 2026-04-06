@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 const repoRoot = process.cwd();
 const storePath = path.join(repoRoot, "data", "store.json");
 const outputPath = path.join(repoRoot, "db", "seed-from-store.sql");
+const checkMode = process.argv.includes("--check");
 
 function escapeSqlString(value) {
   return value.replace(/'/g, "''");
@@ -294,6 +295,20 @@ async function main() {
     ),
     "",
   ].join("\n");
+
+  if (checkMode) {
+    const current = await readFile(outputPath, "utf8");
+    const normalizeLineEndings = (value) => value.replaceAll("\r\n", "\n");
+
+    if (normalizeLineEndings(current) !== normalizeLineEndings(statements)) {
+      throw new Error(
+        `${path.relative(repoRoot, outputPath)} is out of date with data/store.json. Run npm run seed:postgres:export.`,
+      );
+    }
+
+    console.log(`export-postgres-seed: verified ${path.relative(repoRoot, outputPath)}`);
+    return;
+  }
 
   await writeFile(outputPath, statements);
   console.log(`export-postgres-seed: wrote ${path.relative(repoRoot, outputPath)}`);

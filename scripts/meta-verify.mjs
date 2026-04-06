@@ -41,7 +41,7 @@ async function main() {
   await run("npm.cmd", ["run", "typecheck"]);
   await run("node", ["--check", "scripts/bootstrap-postgres.mjs"]);
   await run("npm.cmd", ["run", "build"]);
-  await run("npm.cmd", ["run", "seed:postgres:export"]);
+  await run("npm.cmd", ["run", "seed:postgres:check"]);
   await run("npm.cmd", ["run", "test:functional:file"]);
   await run("npm.cmd", ["run", "test:ui:file"]);
 

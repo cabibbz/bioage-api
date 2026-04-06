@@ -9,6 +9,7 @@
     "bootstrap:postgres": "node ./scripts/bootstrap-postgres.mjs",
     "verify:meta": "node ./scripts/meta-verify.mjs",
     "seed:postgres:export": "node ./scripts/export-postgres-seed.mjs",
+    "seed:postgres:check": "node ./scripts/export-postgres-seed.mjs --check",
     "test:functional": "node ./scripts/functional-tests.mjs",
     "test:functional:file": "node ./scripts/functional-tests.mjs",
     "test:functional:postgres": "node ./scripts/functional-tests-postgres.mjs",
@@ -18,7 +19,7 @@
     "test:integration": "npm run test:functional:file",
     "test:integration:file": "npm run test:functional:file",
     "test:integration:postgres": "npm run test:functional:postgres",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental false",
     "docs:verify": "node ./scripts/docs-verify.mjs",
     "verify": "npm run docs:verify && npm run typecheck && npm run build && npm run test:functional:file && npm run test:ui:file"
   },
