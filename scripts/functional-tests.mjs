@@ -1332,6 +1332,7 @@ const scenarios = [
         action: "follow_up",
         reviewerName: "Functional reviewer",
         note: "Hold until reference range is confirmed.",
+        proposedCanonicalCode: "apob",
       });
 
       const afterUpdate = await getPatientSnapshot();
@@ -1342,6 +1343,8 @@ const scenarios = [
       assert.equal(updatedDecision.decision.id, firstDecision.decision.id);
       assert.equal(updatedDecision.decision.action, "follow_up");
       assert.equal(updatedDecision.decision.proposedCanonicalCode, undefined);
+      assert.equal(updatedDecision.decision.proposedTitle, undefined);
+      assert.equal(updatedDecision.decision.proposedModality, undefined);
 
       const missingCandidate = await postJson(
         "/api/review/decision",

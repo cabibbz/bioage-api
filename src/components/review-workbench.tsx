@@ -104,6 +104,12 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
     setNote(defaultReviewNote);
   }, [selectedCandidate?.id, selectedDecision?.id, selectedDecision?.updatedAt, selectedTask?.id]);
 
+  useEffect(() => {
+    if (action !== "accept" && proposedCanonicalCode !== "") {
+      setProposedCanonicalCode("");
+    }
+  }, [action, proposedCanonicalCode]);
+
   async function handleSubmit() {
     if (!selectedTask || !selectedCandidate) {
       setResult(JSON.stringify({ error: "Choose a parse task with a candidate value first." }, null, 2));

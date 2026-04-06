@@ -973,11 +973,12 @@ export const postgresEvidenceRepository: EvidenceRepository = {
         throw new Error(`Candidate ${input.candidateId} was not found on parse task ${input.parseTaskId}.`);
       }
 
-      const canonicalMatch = input.proposedCanonicalCode
-        ? canonicalCatalog.find((item) => item.canonicalCode === input.proposedCanonicalCode)
-        : undefined;
+      const canonicalMatch =
+        input.action === "accept" && input.proposedCanonicalCode
+          ? canonicalCatalog.find((item) => item.canonicalCode === input.proposedCanonicalCode)
+          : undefined;
 
-      if (input.proposedCanonicalCode && !canonicalMatch) {
+      if (input.action === "accept" && input.proposedCanonicalCode && !canonicalMatch) {
         throw new Error(`Canonical code ${input.proposedCanonicalCode} is not in the catalog.`);
       }
 

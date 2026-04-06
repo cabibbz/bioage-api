@@ -202,6 +202,25 @@ async function assertReviewFormState(section, expected) {
   throw new Error(`Timed out waiting for review form state ${JSON.stringify(expected)}.`);
 }
 
+async function waitForReviewMappingState(section, expectedValue, expectedDisabled) {
+  const mappingSelect = section.locator("label").filter({ hasText: "Proposed canonical mapping" }).locator("select");
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const actualValue = await mappingSelect.inputValue();
+    const actualDisabled = await mappingSelect.isDisabled();
+
+    if (actualValue === expectedValue && actualDisabled === expectedDisabled) {
+      return;
+    }
+
+    await section.page().waitForTimeout(200);
+  }
+
+  throw new Error(
+    `Timed out waiting for review mapping state value=${expectedValue} disabled=${String(expectedDisabled)}.`,
+  );
+}
+
 function countFlaggedSignals(snapshot) {
   return snapshot.patient.measurements.filter(
     (measurement) => measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch",
@@ -805,6 +824,7 @@ async function main() {
         sourceFilename: firstArchive.childCsvFilename,
         candidateDisplayName: "ApoB",
         action: "reject",
+        stagedCanonicalCode: "apob",
         reviewerName: "UI clinician reject",
         note: "Rejected during overflow coverage to prove non-promotable review behavior.",
       },
@@ -933,7 +953,17 @@ async function main() {
       await parseTaskSelect.selectOption({ value: resolvedTarget.task.id });
       await waitForSelectOptionValue(candidateSelect, resolvedTarget.candidate.id);
       await candidateSelect.selectOption({ value: resolvedTarget.candidate.id });
+      if (target.stagedCanonicalCode) {
+        await reviewSection
+          .locator("label")
+          .filter({ hasText: "Proposed canonical mapping" })
+          .locator("select")
+          .selectOption(target.stagedCanonicalCode);
+      }
       await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption(target.action);
+      if (target.stagedCanonicalCode) {
+        await waitForReviewMappingState(reviewSection, "", true);
+      }
       await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill(target.reviewerName);
       await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill(target.note);
       await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
