@@ -639,7 +639,7 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
 
     const documentArchives = await Promise.all(
-      ["ui-functional-a", "ui-functional-b", "ui-functional-c"].map(async (prefix) => ({
+      ["ui-functional-a", "ui-functional-b", "ui-functional-c", "ui-functional-d"].map(async (prefix) => ({
         prefix,
         archiveFilename: `${prefix}.zip`,
         childCsvFilename: `${prefix}-labs.csv`,
@@ -706,7 +706,7 @@ async function main() {
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
-    const reviewTargets = [
+    const acceptedReviewTargets = [
       {
         sourceFilename: latestArchive.childCsvFilename,
         candidateDisplayName: "ApoB",
@@ -722,28 +722,44 @@ async function main() {
         note: "Latest CRP review kept for promotion overflow coverage.",
       },
       {
-        sourceFilename: additionalArchives[0].childCsvFilename,
+        sourceFilename: additionalArchives[1].childCsvFilename,
         candidateDisplayName: "ApoB",
         proposedCanonicalCode: "apob",
         reviewerName: "UI clinician 3",
         note: "Second archive ApoB review kept for overflow coverage.",
       },
       {
-        sourceFilename: additionalArchives[0].childCsvFilename,
+        sourceFilename: additionalArchives[1].childCsvFilename,
         candidateDisplayName: "C-Reactive Protein",
         proposedCanonicalCode: "inflammation_crp",
         reviewerName: "UI clinician 4",
         note: "Second archive CRP review kept for overflow coverage.",
       },
       {
-        sourceFilename: firstArchive.childCsvFilename,
+        sourceFilename: additionalArchives[0].childCsvFilename,
         candidateDisplayName: "ApoB",
         proposedCanonicalCode: "apob",
         reviewerName: "UI clinician 5",
         note: "First archive ApoB review kept for overflow coverage.",
       },
     ];
-    const firstReviewTarget = reviewTargets[0];
+    const nonAcceptReviewTargets = [
+      {
+        sourceFilename: firstArchive.childCsvFilename,
+        candidateDisplayName: "ApoB",
+        action: "reject",
+        reviewerName: "UI clinician reject",
+        note: "Rejected during overflow coverage to prove non-promotable review behavior.",
+      },
+      {
+        sourceFilename: firstArchive.childCsvFilename,
+        candidateDisplayName: "C-Reactive Protein",
+        action: "follow_up",
+        reviewerName: "UI clinician follow-up",
+        note: "Flagged for follow-up during overflow coverage to prove non-accept review behavior.",
+      },
+    ];
+    const firstReviewTarget = acceptedReviewTargets[0];
     const reviewErrorSnapshot = await loadPersistedSnapshot();
     const errorReviewTarget = resolveCsvReviewTarget(
       reviewErrorSnapshot,
@@ -766,7 +782,7 @@ async function main() {
     log("review", "rejected blank reviewer input without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
-    for (const target of reviewTargets) {
+    for (const target of acceptedReviewTargets) {
       const snapshotBeforeReview = await loadPersistedSnapshot();
       const resolvedTarget = resolveCsvReviewTarget(
         snapshotBeforeReview,
@@ -827,7 +843,7 @@ async function main() {
     log("promotion", "rejected an invalid promotion request without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Promote accepted decisions");
-    for (const target of reviewTargets) {
+    for (const target of acceptedReviewTargets) {
       const snapshotBeforePromotion = await loadPersistedSnapshot();
       const decision = resolveReviewDecision(
         snapshotBeforePromotion,
@@ -848,6 +864,35 @@ async function main() {
     coveredDashboardHeadings.add("Modality-aware evidence cards");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("promotion", "promoted five accepted decisions through the UI and verified recent-promotion overflow rendering");
+
+    for (const target of nonAcceptReviewTargets) {
+      const snapshotBeforeReview = await loadPersistedSnapshot();
+      const resolvedTarget = resolveCsvReviewTarget(
+        snapshotBeforeReview,
+        target.sourceFilename,
+        target.candidateDisplayName,
+      );
+      await waitForSelectOptionValue(parseTaskSelect, resolvedTarget.task.id);
+      await parseTaskSelect.selectOption({ value: resolvedTarget.task.id });
+      await waitForSelectOptionValue(candidateSelect, resolvedTarget.candidate.id);
+      await candidateSelect.selectOption({ value: resolvedTarget.candidate.id });
+      await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption(target.action);
+      await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill(target.reviewerName);
+      await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill(target.note);
+      await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+      await reviewSection
+        .locator("pre")
+        .filter({ hasText: `"candidateId": "${resolvedTarget.candidate.id}"` })
+        .waitFor();
+      await refreshDashboard(page);
+      await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    }
+    await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
+    const afterNonAcceptReviews = await loadPersistedSnapshot();
+    assert.ok(afterNonAcceptReviews.reviewDecisions.some((decision) => decision.action === "reject"));
+    assert.ok(afterNonAcceptReviews.reviewDecisions.some((decision) => decision.action === "follow_up"));
+    await assertDashboardMatchesSnapshot(sections, afterNonAcceptReviews);
+    log("review", "saved reject and follow-up decisions through the UI and verified the promotion queue emptied");
 
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
