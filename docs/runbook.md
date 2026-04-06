@@ -75,6 +75,7 @@ This runs:
 - the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
 - the browser suite now creates enough accepted reviews and promotions to verify overflow behavior for the capped recent-decisions and recent-promotions feeds
 - the browser suite now also saves `reject` and `follow_up` review decisions through the UI and verifies the promotion workbench returns to the empty pending state once all accepted decisions are consumed
+- the browser suite now also revisits the review workbench after promotion overflow so non-accept actions are exercised after the accepted queue has been drained
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
