@@ -42,6 +42,7 @@
 - fixed the document workbench reset path so it clears the actual file input instead of only React state, and added browser coverage for the reset behavior
 - expanded browser reset coverage across the remaining workbenches so promotion/report/intervention reset paths must restore their expected local defaults without mutating persisted state
 - expanded browser selection coverage so review and promotion must update their visible snapshot cards when the selected candidate or decision changes
+- expanded browser transition coverage so review and promotion must retarget to a valid remaining record when the currently selected one disappears after promotion
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario

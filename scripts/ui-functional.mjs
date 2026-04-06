@@ -359,6 +359,32 @@ function pendingPromotionDecisions(snapshot) {
   );
 }
 
+function editableReviewTasks(snapshot) {
+  const promotedDecisionIds = new Set(snapshot.measurementPromotions.map((promotion) => promotion.reviewDecisionId));
+  const promotedCandidateKeys = new Set(
+    snapshot.reviewDecisions
+      .filter((decision) => promotedDecisionIds.has(decision.id))
+      .map((decision) => `${decision.parseTaskId}:${decision.candidateId}`),
+  );
+
+  return snapshot.parseTasks
+    .map((task) => ({
+      ...task,
+      candidates: task.candidates.filter((candidate) => !promotedCandidateKeys.has(`${task.id}:${candidate.id}`)),
+    }))
+    .filter((task) => task.candidates.length > 0);
+}
+
+function resolveEditableReviewSelection(snapshot, taskId, candidateId) {
+  const task = editableReviewTasks(snapshot).find((entry) => entry.id === taskId);
+  assert.ok(task, `Editable review task ${taskId} should exist.`);
+
+  const candidate = task.candidates.find((entry) => entry.id === candidateId);
+  assert.ok(candidate, `Editable review candidate ${candidateId} should exist on task ${taskId}.`);
+
+  return { task, candidate };
+}
+
 async function assertSignalCardsMatchSnapshot(section, snapshot) {
   const expectedSignals = snapshot.patient.measurements.slice(0, 3);
   const cards = section.locator(".signal-card");
@@ -1111,7 +1137,7 @@ async function main() {
     log("promotion", "reset the promotion workbench back to the first pending decision and cleared local result state");
 
     successfulWorkbenchHeadings.add("Promote accepted decisions");
-    for (const target of acceptedReviewTargets) {
+    for (const [index, target] of acceptedReviewTargets.entries()) {
       const snapshotBeforePromotion = await loadPersistedSnapshot();
       const decision = resolveReviewDecision(
         snapshotBeforePromotion,
@@ -1126,6 +1152,23 @@ async function main() {
         .locator("pre")
         .filter({ hasText: `"reviewDecisionId": "${decision.id}"` })
         .waitFor();
+      if (index === 0) {
+        const afterFirstPromotion = await loadPersistedSnapshot();
+        const remainingPendingDecisions = pendingPromotionDecisions(afterFirstPromotion);
+        assert.ok(remainingPendingDecisions.length > 0, "Promotion retarget coverage requires remaining pending decisions.");
+        const remainingPromotionOptionValues = await waitForSelectOptionValueToDisappear(promotionSelect, decision.id);
+        assert.equal(
+          await promotionSelect.inputValue(),
+          remainingPromotionOptionValues[0],
+          "Promotion workbench should retarget to the first remaining pending decision.",
+        );
+        const autoSelectedDecision = remainingPendingDecisions.find(
+          (entry) => entry.id === remainingPromotionOptionValues[0],
+        );
+        assert.ok(autoSelectedDecision, "Auto-selected promotion decision should resolve from persisted state.");
+        await waitForPromotionSnapshot(promotionSection, autoSelectedDecision);
+        log("promotion", "retargeted the promotion workbench to the next pending decision after removing the current one");
+      }
       await refreshDashboard(page);
       await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     }
@@ -1273,8 +1316,33 @@ async function main() {
       "Promoted candidates should disappear from the editable review queue.",
     );
     assert.ok(remainingCandidateValues.length > 0, "The review workbench should still expose other editable candidates.");
+    const autoSelectedTaskId = await parseTaskSelect.inputValue();
+    const autoSelectedCandidateId = await candidateSelect.inputValue();
+    assert.equal(
+      autoSelectedCandidateId,
+      remainingCandidateValues[0],
+      "Review workbench should retarget to the first remaining editable candidate.",
+    );
+    const autoSelectedReview = resolveEditableReviewSelection(
+      afterReviewUpdatePromotion,
+      autoSelectedTaskId,
+      autoSelectedCandidateId,
+    );
+    await waitForReviewCandidateSnapshot(reviewSection, autoSelectedReview.candidate);
+    const autoSelectedDecision = afterReviewUpdatePromotion.reviewDecisions.find(
+      (decision) =>
+        decision.parseTaskId === autoSelectedTaskId && decision.candidateId === autoSelectedCandidateId,
+    );
+    await assertReviewFormState(reviewSection, {
+      action: autoSelectedDecision?.action ?? "accept",
+      reviewerName: autoSelectedDecision?.reviewerName ?? "Demo clinician",
+      proposedCanonicalCode: autoSelectedDecision?.proposedCanonicalCode ?? "",
+      note:
+        autoSelectedDecision?.note ??
+        "Looks directionally valid. Hold as reviewed candidate before promotion.",
+    });
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
-    log("review", "removed the promoted candidate from the editable review queue after promotion");
+    log("review", "removed the promoted candidate from the editable review queue and retargeted to the next editable record");
 
     const reportJsonErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill("{");
