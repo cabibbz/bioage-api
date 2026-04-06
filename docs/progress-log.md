@@ -31,6 +31,7 @@
 - added the first non-genetic qualitative text canonicalization rules so vendor wording like `BORDERLINE HIGH` and `NOT DETECTED` now resolves into stable text values through both direct report intake and reviewed promotion
 - added first bounded-text canonicalization rules so vendor wording like `LESS THAN 0.3`, `GREATER THAN OR EQUAL TO 90`, and `≤ 85` now resolves into stable bounded values through both direct report intake and reviewed promotion
 - widened bounded-text normalization again so detection-limit wrappers like `Below detection limit: 0.3` and `Above reportable limit: 90` now resolve into stable bounded values through both direct report intake and reviewed promotion
+- widened qualitative text normalization again so assay-qualified wording like `NOT DETECTED BY PCR`, `NON REACTIVE SCREENING RESULT`, `DETECTED VIA ASSAY`, and `REPEATEDLY REACTIVE` now resolves into stable canonical text through both direct report intake and reviewed promotion
 - added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
 - added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text

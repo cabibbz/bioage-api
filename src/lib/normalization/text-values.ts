@@ -122,37 +122,101 @@ function normalizeGenericTextValue(title: string, sourceValue: string): TextNorm
   return normalizeGenericQualitativeText(title, sourceValue);
 }
 
+function canonicalizeQualitativeBaseValue(qualitativeKey: string) {
+  if (/^borderline[\s-]+high$/.test(qualitativeKey)) {
+    return "borderline high";
+  }
+
+  if (/^borderline[\s-]+low$/.test(qualitativeKey)) {
+    return "borderline low";
+  }
+
+  if (/^(positive|pos|positive result)$/.test(qualitativeKey)) {
+    return "positive";
+  }
+
+  if (/^(negative|neg|negative result)$/.test(qualitativeKey)) {
+    return "negative";
+  }
+
+  if (/^(detected|detected result)$/.test(qualitativeKey)) {
+    return "detected";
+  }
+
+  if (/^(not[\s-]*detected|none detected|undetected)$/.test(qualitativeKey)) {
+    return "not detected";
+  }
+
+  if (/^reactive$/.test(qualitativeKey)) {
+    return "reactive";
+  }
+
+  if (/^non[\s-]*reactive$/.test(qualitativeKey)) {
+    return "non-reactive";
+  }
+
+  if (/^(normal|within normal limits)$/.test(qualitativeKey)) {
+    return "normal";
+  }
+
+  if (/^(abnormal|out of range)$/.test(qualitativeKey)) {
+    return "abnormal";
+  }
+
+  if (/^(equivocal|indeterminate)$/.test(qualitativeKey)) {
+    return qualitativeKey;
+  }
+
+  if (/^(present|absent)$/.test(qualitativeKey)) {
+    return qualitativeKey;
+  }
+
+  return undefined;
+}
+
+function resolveContextualQualitativeValue(qualitativeKey: string) {
+  const directValue = canonicalizeQualitativeBaseValue(qualitativeKey);
+  if (directValue) {
+    return directValue;
+  }
+
+  const contextualPatterns = [
+    {
+      pattern:
+        /^(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)\s+(?:screen|screening|qualitative)(?:\s+result)?$/,
+      baseGroup: 1,
+    },
+    {
+      pattern:
+        /^(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)\s+(?:by|on|via)\s+[a-z0-9/-]+(?:\s+[a-z0-9/-]+){0,4}(?:\s+result)?$/,
+      baseGroup: 1,
+    },
+    {
+      pattern: /^(?:repeatedly|repeat)\s+(reactive|non[\s-]*reactive)$/,
+      baseGroup: 1,
+    },
+  ];
+
+  for (const { pattern, baseGroup } of contextualPatterns) {
+    const match = qualitativeKey.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    const contextualValue = canonicalizeQualitativeBaseValue(match[baseGroup]);
+    if (contextualValue) {
+      return contextualValue;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeGenericQualitativeText(title: string, sourceValue: string): TextNormalizationResult {
   const normalizedSource = normalizeWhitespace(sourceValue);
   const qualitativeKey = normalizeQualitativeKey(sourceValue);
 
-  let normalizedValue: string | undefined;
-
-  if (/^borderline[\s-]+high$/.test(qualitativeKey)) {
-    normalizedValue = "borderline high";
-  } else if (/^borderline[\s-]+low$/.test(qualitativeKey)) {
-    normalizedValue = "borderline low";
-  } else if (/^(positive|pos|positive result)$/.test(qualitativeKey)) {
-    normalizedValue = "positive";
-  } else if (/^(negative|neg|negative result)$/.test(qualitativeKey)) {
-    normalizedValue = "negative";
-  } else if (/^(detected|detected result)$/.test(qualitativeKey)) {
-    normalizedValue = "detected";
-  } else if (/^(not[\s-]*detected|none detected|undetected)$/.test(qualitativeKey)) {
-    normalizedValue = "not detected";
-  } else if (/^reactive$/.test(qualitativeKey)) {
-    normalizedValue = "reactive";
-  } else if (/^non[\s-]*reactive$/.test(qualitativeKey)) {
-    normalizedValue = "non-reactive";
-  } else if (/^(normal|within normal limits)$/.test(qualitativeKey)) {
-    normalizedValue = "normal";
-  } else if (/^(abnormal|out of range)$/.test(qualitativeKey)) {
-    normalizedValue = "abnormal";
-  } else if (/^(equivocal|indeterminate)$/.test(qualitativeKey)) {
-    normalizedValue = qualitativeKey;
-  } else if (/^(present|absent)$/.test(qualitativeKey)) {
-    normalizedValue = qualitativeKey;
-  }
+  const normalizedValue = resolveContextualQualitativeValue(qualitativeKey);
 
   if (!normalizedValue) {
     return {

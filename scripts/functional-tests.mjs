@@ -701,6 +701,20 @@ function createTextFhirResource() {
   );
 }
 
+function createAssayQualifiedTextFhirResource() {
+  return Buffer.from(
+    JSON.stringify({
+      resourceType: "Observation",
+      status: "final",
+      code: {
+        text: "CRP",
+      },
+      valueString: "NOT DETECTED BY PCR",
+      effectiveDateTime: "2026-04-03T09:30:00.000Z",
+    }),
+  );
+}
+
 function createBoundedTextFhirResource() {
   return Buffer.from(
     JSON.stringify({
@@ -1458,6 +1472,80 @@ const scenarios = [
     },
   },
   {
+    name: "report-intake-normalizes-assay-qualified-qualitative-wording",
+    covers: ["POST /api/intake/report"],
+    coverageType: "success",
+    async run() {
+      const before = await getPatientSnapshot();
+      const report = await postJson("/api/intake/report", {
+        patientId,
+        vendor: "Functional assay-qualified panel",
+        observedAt: "2026-04-04T11:30:00.000Z",
+        entries: [
+          { name: "CRP", textValue: "NOT DETECTED BY PCR" },
+          { name: "Apolipoprotein B", textValue: "NON REACTIVE SCREENING RESULT" },
+          { name: "Glucose", textValue: "DETECTED VIA ASSAY" },
+          { name: "LDL-C", textValue: "REPEATEDLY REACTIVE" },
+        ],
+      });
+
+      assert.equal(report.normalizationSummary.totalEntries, 4);
+      assert.equal(report.normalizationSummary.mappedEntries, 4);
+      assert.equal(report.normalizationSummary.unmappedEntries, 0);
+
+      const crpMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "inflammation_crp");
+      assert.ok(crpMeasurement);
+      assert.equal(crpMeasurement.textValue, "not detected");
+      assert.ok(crpMeasurement.note.includes('from "NOT DETECTED BY PCR" to "not detected"'));
+
+      const apobMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "apob");
+      assert.ok(apobMeasurement);
+      assert.equal(apobMeasurement.textValue, "non-reactive");
+      assert.ok(apobMeasurement.note.includes('from "NON REACTIVE SCREENING RESULT" to "non-reactive"'));
+
+      const glucoseMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "fasting_glucose");
+      assert.ok(glucoseMeasurement);
+      assert.equal(glucoseMeasurement.textValue, "detected");
+      assert.ok(glucoseMeasurement.note.includes('from "DETECTED VIA ASSAY" to "detected"'));
+
+      const ldlMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "ldl_cholesterol");
+      assert.ok(ldlMeasurement);
+      assert.equal(ldlMeasurement.textValue, "reactive");
+      assert.ok(ldlMeasurement.note.includes('from "REPEATEDLY REACTIVE" to "reactive"'));
+
+      const after = await getPatientSnapshot();
+      assertCountDelta(countSnapshot(before), countSnapshot(after), {
+        measurements: 4,
+        reportIngestions: 1,
+        timeline: 1,
+      });
+
+      const persistedCrpMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "inflammation_crp" && measurement.observedAt === "2026-04-04T11:30:00.000Z",
+      );
+      assert.ok(persistedCrpMeasurement);
+      assert.ok(persistedCrpMeasurement.interpretation.includes("text or categorical result not detected"));
+
+      const persistedApobMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "apob" && measurement.observedAt === "2026-04-04T11:30:00.000Z",
+      );
+      assert.ok(persistedApobMeasurement);
+      assert.ok(persistedApobMeasurement.interpretation.includes("text or categorical result non-reactive"));
+
+      const persistedGlucoseMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "fasting_glucose" && measurement.observedAt === "2026-04-04T11:30:00.000Z",
+      );
+      assert.ok(persistedGlucoseMeasurement);
+      assert.ok(persistedGlucoseMeasurement.interpretation.includes("text or categorical result detected"));
+
+      const persistedLdlMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "ldl_cholesterol" && measurement.observedAt === "2026-04-04T11:30:00.000Z",
+      );
+      assert.ok(persistedLdlMeasurement);
+      assert.ok(persistedLdlMeasurement.interpretation.includes("text or categorical result reactive"));
+    },
+  },
+  {
     name: "report-intake-missing-patient",
     covers: ["POST /api/intake/report"],
     coverageType: "error",
@@ -2127,6 +2215,55 @@ const scenarios = [
       assert.equal(promoted.measurement.value, undefined);
       assert.equal(promoted.measurement.unit, undefined);
       assert.ok(promoted.measurement.interpretation.includes("bounded result <0.3"));
+      assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+    },
+  },
+  {
+    name: "promotion-normalizes-reviewed-assay-qualified-text-values",
+    covers: ["POST /api/review/promote"],
+    coverageType: "success",
+    async run() {
+      const upload = await postMultipart("/api/intake/document", {
+        patientId,
+        sourceSystem: "Functional assay-qualified observation",
+        observedAt: "2026-04-05T11:30:00.000Z",
+        file: new File([createAssayQualifiedTextFhirResource()], "functional-assay-qualified-text-observation.json", {
+          type: "application/json",
+        }),
+      });
+
+      const target = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.numericValue === undefined && candidateHasPromotableValue(candidate),
+      );
+      assert.ok(target);
+
+      const decision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: target.task.id,
+        candidateId: target.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "inflammation_crp",
+      });
+
+      const beforePromotion = await getPatientSnapshot();
+      const promoted = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: decision.decision.id,
+      });
+
+      const afterPromotion = await getPatientSnapshot();
+      assert.equal(promoted.alreadyPromoted, false);
+      assert.equal(promoted.measurement.canonicalCode, "inflammation_crp");
+      assert.equal(promoted.measurement.textValue, "not detected");
+      assert.equal(promoted.measurement.value, undefined);
+      assert.equal(promoted.measurement.unit, undefined);
+      assert.ok(promoted.measurement.interpretation.includes("text or categorical result not detected"));
       assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
         measurements: 1,
         measurementPromotions: 1,
