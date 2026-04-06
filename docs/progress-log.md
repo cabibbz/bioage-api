@@ -40,6 +40,7 @@
 - fixed the report and intervention workbenches so non-array report entries plus blank intervention title/detail now fail locally with stable errors instead of round-tripping to backend validation
 - fixed the review workbench reset path so it restores the current candidate's persisted/default state instead of leaving unsaved edits behind, and added browser coverage for that reset behavior
 - fixed the document workbench reset path so it clears the actual file input instead of only React state, and added browser coverage for the reset behavior
+- expanded browser reset coverage across the remaining workbenches so promotion/report/intervention reset paths must restore their expected local defaults without mutating persisted state
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario

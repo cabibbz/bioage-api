@@ -1053,6 +1053,16 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, promotionErrorSnapshot, discoveredWorkbenchHeadings);
     log("promotion", "rejected an invalid promotion request without mutating persisted state");
 
+    const promotionOptionValues = await readSelectOptionValues(promotionSelect);
+    assert.ok(promotionOptionValues.length > 1, "Promotion reset coverage requires multiple pending decisions.");
+    const nonDefaultPromotionDecisionId = promotionOptionValues[promotionOptionValues.length - 1];
+    await promotionSelect.selectOption({ value: nonDefaultPromotionDecisionId });
+    await promotionSection.getByRole("button", { name: "Reset demo", exact: true }).click();
+    assert.equal(await promotionSelect.inputValue(), promotionOptionValues[0]);
+    await promotionSection.locator("pre").filter({ hasText: "Promotion output will appear here." }).waitFor();
+    await assertDashboardMatchesSnapshot(sections, promotionErrorSnapshot);
+    log("promotion", "reset the promotion workbench back to the first pending decision and cleared local result state");
+
     successfulWorkbenchHeadings.add("Promote accepted decisions");
     for (const target of acceptedReviewTargets) {
       const snapshotBeforePromotion = await loadPersistedSnapshot();
@@ -1236,6 +1246,30 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
     log("report", "rejected a non-array entries payload locally without mutating persisted state");
 
+    await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Quest panel via Terra parser");
+    await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('[{"name":"Temporary value","value":1}]');
+    await reportSection.getByRole("button", { name: "Reset demo", exact: true }).click();
+    assert.equal(
+      await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").inputValue(),
+      "TruDiagnostic",
+    );
+    assert.equal(
+      await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").inputValue(),
+      JSON.stringify(
+        [
+          { name: "OMICmAge", value: 45.1, unit: "years" },
+          { name: "DunedinPACE", value: 0.91 },
+          { name: "CRP", value: 1.4, unit: "mg/L" },
+          { name: "Unknown vendor score", value: 72 },
+        ],
+        null,
+        2,
+      ),
+    );
+    await reportSection.locator("pre").filter({ hasText: "Normalization output will appear here." }).waitFor();
+    await assertDashboardMatchesSnapshot(sections, reportErrorSnapshot);
+    log("report", "reset the report workbench back to its demo vendor, entries payload, and cleared result state");
+
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
@@ -1276,6 +1310,30 @@ async function main() {
     await interventionSection.locator("pre").filter({ hasText: '"error": "Detail is required."' }).waitFor();
     await assertUiStateUnchangedAfterError(page, sections, interventionDetailErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected a blank intervention detail locally without mutating persisted state");
+
+    await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("Temporary intervention title");
+    await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").fill("2026-03-20");
+    await interventionSection
+      .locator("label")
+      .filter({ hasText: "Detail" })
+      .locator("textarea")
+      .fill("Temporary intervention detail");
+    await interventionSection.getByRole("button", { name: "Reset demo", exact: true }).click();
+    assert.equal(
+      await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").inputValue(),
+      "Omega-3 dose increased",
+    );
+    assert.equal(
+      await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").inputValue(),
+      "2026-04-04",
+    );
+    assert.equal(
+      await interventionSection.locator("label").filter({ hasText: "Detail" }).locator("textarea").inputValue(),
+      "Raised EPA/DHA intake and paired with repeat inflammation review in 60 days.",
+    );
+    await interventionSection.locator("pre").filter({ hasText: "Intervention save output will appear here." }).waitFor();
+    await assertDashboardMatchesSnapshot(sections, interventionDetailErrorSnapshot);
+    log("intervention", "reset the intervention workbench back to its demo title, detail, date, and cleared result state");
 
     successfulWorkbenchHeadings.add("Tag a protocol change");
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI intervention checkpoint");
