@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import os from "node:os";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { writeUiArchiveFixtures } from "./lib/ui-archive-fixtures.mjs";
 
 function log(message) {
   console.log(`[ui-parity] ${message}`);
@@ -52,16 +53,21 @@ async function main() {
   requireDatabaseUrl();
 
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "longevity-ui-parity-"));
+  const archiveDir = path.join(tempDir, "archives");
   const fileReportPath = path.join(tempDir, "file-report.json");
   const postgresReportPath = path.join(tempDir, "postgres-report.json");
 
   try {
+    await mkdir(archiveDir, { recursive: true });
+    await writeUiArchiveFixtures(archiveDir);
+
     await runSuite(
       "file",
       "./scripts/ui-functional-file.mjs",
       {
         PERSISTENCE_BACKEND: "file",
         UI_FUNCTIONAL_PORT: process.env.UI_PARITY_FILE_PORT?.trim() || "3160",
+        UI_FUNCTIONAL_ARCHIVE_DIR: archiveDir,
       },
       fileReportPath,
     );
@@ -73,6 +79,7 @@ async function main() {
         PERSISTENCE_BACKEND: "postgres",
         UI_FUNCTIONAL_ALLOW_DB_RESET: "1",
         UI_FUNCTIONAL_PORT: process.env.UI_PARITY_POSTGRES_PORT?.trim() || "3161",
+        UI_FUNCTIONAL_ARCHIVE_DIR: archiveDir,
       },
       postgresReportPath,
     );

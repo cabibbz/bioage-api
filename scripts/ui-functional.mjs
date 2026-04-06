@@ -4,8 +4,8 @@ import os from "node:os";
 import { mkdtemp, readdir, rm, copyFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
-import JSZip from "jszip";
 import { resolveCanonicalCodeForName } from "./lib/canonical-catalog.mjs";
+import { loadUiArchiveFixtures } from "./lib/ui-archive-fixtures.mjs";
 import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
 import { applySchemaAndSeed } from "./lib/postgres-admin.mjs";
 
@@ -524,9 +524,7 @@ function normalizeSnapshotForParity(snapshot) {
         originalFilename: document.originalFilename,
         mimeType: document.mimeType,
         byteSize: document.byteSize,
-        // Chromium-backed virtual uploads keep ZIP contents logically equivalent here,
-        // but parent archive bytes are not stable enough across separate browser runs for parity.
-        checksumSha256: document.classification === "zip_archive" ? null : document.checksumSha256,
+        checksumSha256: document.checksumSha256,
         classification: document.classification,
         status: document.status,
         observedAt: document.observedAt ?? null,
@@ -1063,16 +1061,6 @@ async function discoverDashboardSectionHeadings(page) {
   return [...new Set(headings)].filter((heading) => !workbenchHeadings.has(heading)).sort();
 }
 
-function csvFixture() {
-  return Buffer.from(
-    [
-      "name,result,unit,loinc,observed_at",
-      "ApoB,78,mg/dL,1884-6,2026-04-01T08:00:00.000Z",
-      "C-Reactive Protein,1.1,mg/L,1988-5,2026-04-01T08:00:00.000Z",
-    ].join("\n"),
-  );
-}
-
 function textObservationFixture() {
   return Buffer.from(
     JSON.stringify({
@@ -1085,23 +1073,6 @@ function textObservationFixture() {
       effectiveDateTime: "2026-04-03T09:00:00.000Z",
     }),
   );
-}
-
-const deterministicZipDate = new Date("2026-01-01T00:00:00.000Z");
-
-async function zipFixture(prefix) {
-  const zip = new JSZip();
-  zip.file(`labs/${prefix}-labs.csv`, csvFixture(), { date: deterministicZipDate });
-  zip.file(
-    `notes/${prefix}-note.txt`,
-    `${prefix} follow-up note: ApoB trend remains the main target after omega-3 and training changes.`,
-    { date: deterministicZipDate },
-  );
-  return zip.generateAsync({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-    platform: "DOS",
-  });
 }
 
 async function main() {
@@ -1191,17 +1162,9 @@ async function main() {
     coveredDashboardHeadings.add("Clinician prep");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
 
-    const documentArchives = [];
-    for (const prefix of ["ui-functional-a", "ui-functional-b", "ui-functional-c", "ui-functional-d"]) {
-      documentArchives.push({
-        prefix,
-        archiveFilename: `${prefix}.zip`,
-        childCsvFilename: `${prefix}-labs.csv`,
-        childTextFilename: `${prefix}-note.txt`,
-        sourceSystem: `UI functional upload ${prefix.toUpperCase()}`,
-        buffer: await zipFixture(prefix),
-      });
-    }
+    const documentArchives = await loadUiArchiveFixtures({
+      archiveDir: process.env.UI_FUNCTIONAL_ARCHIVE_DIR,
+    });
     const [firstArchive, ...additionalArchives] = documentArchives;
     const documentBackendErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);

@@ -63,6 +63,7 @@
 - tightened the source-document contract so zero-byte uploads are rejected instead of being stored as review noise, shared that validation between the document route and workbench, and added API plus browser coverage for the empty-file path
 - pinned the file-backed functional entrypoint so `test:functional:file` and `verify:meta` still run the file suite correctly from a Postgres-configured shell
 - made the browser suite backend-aware, added pinned file/Postgres UI entrypoints, and extended `verify:meta` so a configured database now runs the full browser flow against Postgres too
+- tightened browser parity so both backend runs reuse the same ZIP archive fixture bytes and can compare parent archive checksums directly
 - added a browser parity runner so the same end-to-end clinician workflow now compares normalized final state across file and Postgres backends
 
 ### 2026-04-05

@@ -103,7 +103,7 @@ This runs:
 - report, intervention, and document intake routes now also reject malformed backend timestamp fields, and the functional suite verifies invalid `observedAt` and `occurredAt` payloads directly
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
-- browser parity verification that reruns the same clinician workflow against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
+- browser parity verification now reruns the same clinician workflow against file and Postgres with shared ZIP fixture bytes, so normalized persisted state comparison includes parent archive checksums when `DATABASE_URL` is configured
 
 For the functional suite only:
 
