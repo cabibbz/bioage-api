@@ -67,8 +67,9 @@ This runs:
 - trim-aware required-field validation coverage so blank or whitespace-only request fields fail with the documented `400` responses
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
+- browser workbench coverage now requires both a successful path and an invalid-action path for every discovered interactive workbench
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
-- live browser assertions that compare dashboard counters and signal-board titles against the patient API snapshot after each workflow step
+- live browser assertions that compare dashboard counters and signal-board titles against the patient API snapshot after each workflow step and prove failed UI actions do not mutate persisted state
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
@@ -141,6 +142,6 @@ npm run test:functional:postgres
 - the Postgres functional suite is destructive against the app tables in the configured database
 - PDF, image, HTML, and XLS/XLSX formats remain review-only
 - ZIP ingestion does not yet recurse into nested archives
-- the functional suite still verifies API behavior, not browser UI interaction fidelity
 - backend parity is only checked when `DATABASE_URL` is configured
 - the committed browser suite currently covers the file-backed path only
+- the committed browser suite exercises Chromium only, not a cross-browser matrix

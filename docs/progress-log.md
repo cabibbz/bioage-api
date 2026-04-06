@@ -24,6 +24,7 @@
 - changed verification to check Postgres seed drift without rewriting `db/seed-from-store.sql`, and made typecheck non-incremental so `verify:meta` no longer dirties tracked artifacts
 - made `verify:meta` compare git status before and after the run so verification now fails if it mutates the worktree relative to its starting state
 - upgraded the browser suite so dashboard pills, clinician-prep counts, and signal-board titles are checked against the live patient API snapshot after each workflow step
+- strengthened the browser suite so every discovered workbench now needs both a successful path and an invalid-action path, with snapshot-stability checks after UI errors
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario
 - fixed route validation so required string fields reject blank or whitespace-only values, and added functional coverage for that contract across the mutation routes

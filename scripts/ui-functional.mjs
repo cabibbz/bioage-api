@@ -190,6 +190,14 @@ async function assertDashboardMatchesSnapshot(sections, snapshot) {
   assert.deepEqual(renderedSignalTitles, expectedSignalTitles);
 }
 
+async function assertUiStateUnchangedAfterError(page, sections, expectedSnapshot, discoveredWorkbenchHeadings) {
+  const currentSnapshot = await fetchPatientSnapshot(page);
+  assert.deepEqual(currentSnapshot, expectedSnapshot);
+  await refreshDashboard(page);
+  await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+  await assertDashboardMatchesSnapshot(sections, currentSnapshot);
+}
+
 async function discoverInteractiveWorkbenchHeadings(page) {
   const headings = await page.locator("section").evaluateAll((sections) =>
     sections
@@ -290,7 +298,8 @@ async function main() {
     const discoveredWorkbenchHeadings = new Set();
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     const discoveredDashboardHeadings = await discoverDashboardSectionHeadings(page);
-    const visitedWorkbenchHeadings = new Set();
+    const successfulWorkbenchHeadings = new Set();
+    const errorWorkbenchHeadings = new Set();
     const coveredDashboardHeadings = new Set([
       "What the first customers are buying",
       "Signals needing clinician review",
@@ -330,7 +339,20 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
 
     const documentFilename = "ui-functional.csv";
-    visitedWorkbenchHeadings.add("Upload a source file");
+    const documentErrorSnapshot = await fetchPatientSnapshot(page);
+    await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("   ");
+    await documentSection.locator('input[type="file"]').setInputFiles({
+      name: documentFilename,
+      mimeType: "text/csv",
+      buffer: csvFixture(),
+    });
+    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    await documentSection.locator("pre").filter({ hasText: '"error": "patientId, sourceSystem, and file are required."' }).waitFor();
+    errorWorkbenchHeadings.add("Upload a source file");
+    await assertUiStateUnchangedAfterError(page, sections, documentErrorSnapshot, discoveredWorkbenchHeadings);
+    log("document", "rejected blank source-system upload without mutating persisted state");
+
+    successfulWorkbenchHeadings.add("Upload a source file");
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("UI functional upload");
     await documentSection.locator('input[type="file"]').setInputFiles({
       name: documentFilename,
@@ -351,7 +373,22 @@ async function main() {
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
-    visitedWorkbenchHeadings.add("Adjudicate parser candidates");
+    const reviewErrorSnapshot = await fetchPatientSnapshot(page);
+    await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
+    await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
+    await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
+    await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
+    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("   ");
+    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await reviewSection
+      .locator("pre")
+      .filter({ hasText: '"error": "patientId, parseTaskId, candidateId, action, and reviewerName are required."' })
+      .waitFor();
+    errorWorkbenchHeadings.add("Adjudicate parser candidates");
+    await assertUiStateUnchangedAfterError(page, sections, reviewErrorSnapshot, discoveredWorkbenchHeadings);
+    log("review", "rejected blank reviewer input without mutating persisted state");
+
+    successfulWorkbenchHeadings.add("Adjudicate parser candidates");
     await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
     await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
@@ -370,7 +407,30 @@ async function main() {
     log("review", "accepted and mapped a parser candidate through the UI");
 
     const promotionSelect = promotionSection.locator("select").first();
-    visitedWorkbenchHeadings.add("Promote accepted decisions");
+    const promotionErrorSnapshot = await fetchPatientSnapshot(page);
+    await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
+    await page.route(
+      "**/api/review/promote",
+      async (route) => {
+        await route.continue({
+          postData: JSON.stringify({
+            patientId,
+            reviewDecisionId: "missing-review-decision",
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
+    await promotionSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Review decision missing-review-decision was not found."' })
+      .waitFor();
+    errorWorkbenchHeadings.add("Promote accepted decisions");
+    await assertUiStateUnchangedAfterError(page, sections, promotionErrorSnapshot, discoveredWorkbenchHeadings);
+    log("promotion", "rejected an invalid promotion request without mutating persisted state");
+
+    successfulWorkbenchHeadings.add("Promote accepted decisions");
     await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
     await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
     await promotionSection.locator("pre").filter({ hasText: '"canonicalCode": "apob"' }).waitFor();
@@ -383,7 +443,15 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
     log("promotion", "promoted the accepted review decision through the UI");
 
-    visitedWorkbenchHeadings.add("Report intake and normalization");
+    const reportErrorSnapshot = await fetchPatientSnapshot(page);
+    await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
+    await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
+    await reportSection.locator("pre").filter({ hasText: '"error": "entries must be an array."' }).waitFor();
+    errorWorkbenchHeadings.add("Report intake and normalization");
+    await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
+    log("report", "rejected invalid entries payload without mutating persisted state");
+
+    successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
     await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 3' }).waitFor();
@@ -394,7 +462,23 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
     log("report", "ran report normalization through the UI");
 
-    visitedWorkbenchHeadings.add("Tag a protocol change");
+    const interventionErrorSnapshot = await fetchPatientSnapshot(page);
+    await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("   ");
+    await interventionSection
+      .locator("label")
+      .filter({ hasText: "Detail" })
+      .locator("textarea")
+      .fill("   ");
+    await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
+    await interventionSection
+      .locator("pre")
+      .filter({ hasText: '"error": "patientId, title, detail, and occurredAt are required."' })
+      .waitFor();
+    errorWorkbenchHeadings.add("Tag a protocol change");
+    await assertUiStateUnchangedAfterError(page, sections, interventionErrorSnapshot, discoveredWorkbenchHeadings);
+    log("intervention", "rejected blank intervention fields without mutating persisted state");
+
+    successfulWorkbenchHeadings.add("Tag a protocol change");
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI intervention checkpoint");
     await interventionSection.locator("label").filter({ hasText: "Detail" }).locator("textarea").fill(
       "Added a UI-level intervention event to confirm timeline refresh behavior.",
@@ -414,9 +498,10 @@ async function main() {
     assert.ok(snapshot.measurementPromotions.some((promotion) => promotion.canonicalCode === "apob"));
     assert.ok(snapshot.reportIngestions.some((ingestion) => ingestion.vendor === "Hurdle"));
     assert.ok(snapshot.patient.timeline.some((event) => event.title === "UI intervention checkpoint"));
-    assert.deepEqual([...visitedWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
+    assert.deepEqual([...successfulWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
+    assert.deepEqual([...errorWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
     assert.deepEqual([...coveredDashboardHeadings].sort(), discoveredDashboardHeadings);
-    log("verification", "page interactions and persisted state matched");
+    log("verification", "page interactions, error handling, and persisted state matched");
   } finally {
     await browser?.close();
     server.kill("SIGTERM");
