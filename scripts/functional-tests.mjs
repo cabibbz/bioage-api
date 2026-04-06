@@ -6,6 +6,7 @@ import { mkdtemp, readdir, rm, copyFile, readFile, writeFile } from "node:fs/pro
 import { spawn } from "node:child_process";
 import JSZip from "jszip";
 import { applySchemaAndSeed } from "./lib/postgres-admin.mjs";
+import { resolveCanonicalCodeForName } from "./lib/canonical-catalog.mjs";
 import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
 
 const repoRoot = process.cwd();
@@ -23,10 +24,6 @@ const port = Number(
 );
 const baseUrl = `http://127.0.0.1:${port}`;
 const parserContract = JSON.parse(await readFile(parserContractPath, "utf8"));
-const canonicalCodeByCandidateDisplayName = new Map([
-  ["ApoB", "apob"],
-  ["C-Reactive Protein", "inflammation_crp"],
-]);
 
 function log(step, detail) {
   console.log(`[functional-tests:${backend}] ${step}: ${detail}`);
@@ -870,13 +867,13 @@ function findReviewableCandidate(parseTasks, predicate) {
 function findPromotableReviewTarget(parseTasks) {
   for (const task of parseTasks) {
     const candidate = task.candidates.find(
-      (entry) => entry.numericValue !== undefined && canonicalCodeByCandidateDisplayName.has(entry.displayName),
+      (entry) => entry.numericValue !== undefined && Boolean(resolveCanonicalCodeForName(entry.displayName)),
     );
     if (candidate) {
       return {
         task,
         candidate,
-        proposedCanonicalCode: canonicalCodeByCandidateDisplayName.get(candidate.displayName),
+        proposedCanonicalCode: resolveCanonicalCodeForName(candidate.displayName),
       };
     }
   }

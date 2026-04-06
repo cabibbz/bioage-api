@@ -5,6 +5,7 @@ import { mkdtemp, readdir, rm, copyFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import JSZip from "jszip";
+import { resolveCanonicalCodeForName } from "./lib/canonical-catalog.mjs";
 import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
 
 const repoRoot = process.cwd();
@@ -325,11 +326,6 @@ async function loadPersistedSnapshot() {
   return snapshot;
 }
 
-const canonicalCodeByCandidateDisplayName = new Map([
-  ["ApoB", "apob"],
-  ["C-Reactive Protein", "inflammation_crp"],
-]);
-
 function findReviewTarget(snapshot, predicate) {
   for (const task of snapshot.parseTasks) {
     const candidate = task.candidates.find((entry) => predicate(task, entry));
@@ -367,15 +363,14 @@ function discoverReviewCoverageTargets(snapshot, csvFilenames) {
       sourceFilename: task.sourceDocumentFilename,
       candidates: task.candidates
         .filter(
-          (candidate) =>
-            candidate.numericValue !== undefined && canonicalCodeByCandidateDisplayName.has(candidate.displayName),
+          (candidate) => candidate.numericValue !== undefined && Boolean(resolveCanonicalCodeForName(candidate.displayName)),
         )
         .map((candidate) => ({
           parseTaskId: task.id,
           candidateId: candidate.id,
           sourceFilename: task.sourceDocumentFilename,
           candidateDisplayName: candidate.displayName,
-          proposedCanonicalCode: canonicalCodeByCandidateDisplayName.get(candidate.displayName),
+          proposedCanonicalCode: resolveCanonicalCodeForName(candidate.displayName),
         }))
         .sort((left, right) => left.candidateDisplayName.localeCompare(right.candidateDisplayName)),
     }))
