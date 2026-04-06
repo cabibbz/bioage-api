@@ -122,7 +122,7 @@ The current interpretation layer is intentionally conservative.
 - promoted measurements can now preserve either numeric values or reviewed text/bounded values
 - bounded and text-valued report measurements now keep their qualifier or wording explicit in clinician-facing interpretation
 - direct report intake now also carries first genetic categorical findings without pretending they are trendable lab values
-- the current vendor-specific categorical normalization rules now canonicalize ApoE genotype notation including rs429358/rs7412 SNP phrasing, MTHFR copy-count and dual-negative wording, and the first non-genetic qualitative, bounded, detection-limit, and assay-qualified lab phrases such as `borderline high`, `not detected`, `non-reactive`, `<0.3`, or `>90`, while preserving the original notation in report-ingestion notes
+- the current vendor-specific categorical normalization rules now canonicalize ApoE genotype notation including rs429358/rs7412 SNP phrasing, MTHFR copy-count and dual-negative wording, and the first non-genetic qualitative, bounded, detection-limit, assay-qualified, and positive-or-negative-for-process lab phrases such as `borderline high`, `not detected`, `non-reactive`, `positive`, `<0.3`, or `>90`, while preserving the original notation in report-ingestion notes
 - promotion records remain separate from the measurement row so audit trails survive later edits
 
 The system should prefer:
