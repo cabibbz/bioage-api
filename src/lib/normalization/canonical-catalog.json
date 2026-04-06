@@ -553,6 +553,34 @@
     }
   },
   {
+    "canonicalCode": "apoe_genotype",
+    "title": "ApoE Genotype",
+    "modality": "genetic",
+    "category": "genetic_variant",
+    "preferredUnit": "categorical",
+    "aliases": [
+      "apoe genotype",
+      "apoe",
+      "apoe status",
+      "apoe result"
+    ],
+    "notes": "Preserve the exact allele notation because ApoE genotypes are static categorical findings rather than trend measurements."
+  },
+  {
+    "canonicalCode": "mthfr_status",
+    "title": "MTHFR Status",
+    "modality": "genetic",
+    "category": "genetic_variant",
+    "preferredUnit": "categorical",
+    "aliases": [
+      "mthfr status",
+      "mthfr",
+      "mthfr mutation",
+      "mthfr result"
+    ],
+    "notes": "Preserve the exact variant wording because MTHFR findings are categorical genotype results, not numeric lab trends."
+  },
+  {
     "canonicalCode": "wearable_hrv_sleep_window",
     "title": "Recovery Capacity (RMSSD)",
     "modality": "wearable",

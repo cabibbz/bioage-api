@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         totalTimelineEvents: persisted.patient.timeline.length,
       },
       nextActions: [
-        "Harden interpretation and display rules for categorical report results without collapsing provenance.",
+        "Expand vendor-specific categorical mappings and nomenclature handling beyond the first genetic report cases.",
         "Expand unit-aware normalization beyond the current safe alternate-unit set.",
         "Keep growing the review-first mapping catalog with vendor-specific aliases, units, and LOINC coverage.",
       ],

@@ -2054,6 +2054,7 @@ async function main() {
         [
           { name: "Index biological age", value: 45.1, unit: "years" },
           { name: "OMICm FitAge", value: 43.4, unit: "years" },
+          { name: "APOE Genotype", textValue: "e3/e4" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
@@ -2074,7 +2075,9 @@ async function main() {
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
-    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 9' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 10' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "apoe_genotype"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"textValue": "e3/e4"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "fasting_glucose"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"value": 97.3' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "inflammation_crp"' }).waitFor();
@@ -2092,6 +2095,17 @@ async function main() {
     await timelineSection.getByText("Hurdle report normalized").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
     const afterReportNormalization = await loadPersistedSnapshot();
+    const apoeSignal = afterReportNormalization.patient.measurements
+      .slice(0, 3)
+      .find((measurement) => measurement.canonicalCode === "apoe_genotype");
+    assert.ok(apoeSignal, "Categorical ApoE report result should appear in the latest signal board cards.");
+    await signalBoardSection
+      .locator(".signal-card")
+      .filter({ hasText: "ApoE Genotype" })
+      .locator(".pill")
+      .filter({ hasText: "categorical result" })
+      .first()
+      .waitFor();
     await assertDashboardMatchesSnapshot(sections, afterReportNormalization);
     parityCheckpoints.push({
       label: "report_normalized",

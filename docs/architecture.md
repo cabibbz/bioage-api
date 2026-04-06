@@ -33,7 +33,7 @@ Current non-goals:
 2. Server component resolves the active repository, which defaults to file storage and can switch to Postgres through environment configuration, then loads patient `pt_001`.
 3. User submits source metrics in the upload workbench.
 4. `POST /api/intake/report` normalizes source aliases plus a small safe alternate-unit set into canonical measurements.
-5. The route persists a report-ingestion record and prepends new measurements and a timeline event to the patient record.
+5. The route persists a report-ingestion record and prepends new measurements and a timeline event to the patient record, including first-class bounded, text, and genetic categorical findings.
 6. `POST /api/intake/document` stores a source file, fingerprints it, classifies it, and extracts supported ZIP children into child source-document records.
 7. The document path creates parser tasks for the parent document and any extracted children.
 8. Deterministic parsers summarize FHIR JSON, generic JSON, CSV, TXT, C-CDA structure, and ZIP manifests immediately.
@@ -49,6 +49,6 @@ Current non-goals:
 - move source report binaries into object storage with checksums
 - add field-level review queues for unmapped metrics
 - separate source ingestion from clinician-facing projections
-- harden direct report interpretation and display for categorical entries and richer text semantics
+- expand vendor-specific categorical mappings and richer text semantics without collapsing provenance
 - broaden unit-aware normalization beyond the current small safe alternate-unit set
 - support vendor-specific and multimodal PDF parsing only after review semantics exist

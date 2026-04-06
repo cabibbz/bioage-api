@@ -9,6 +9,7 @@ It starts from canonical concepts that preserve modality and provenance:
 - biological-age concepts such as `epigenetic_biological_age`, `pace_of_aging`, `epigenetic_fitness_age`, and `telomere_length`
 - core lipid and metabolic concepts such as `apob`, `ldl_cholesterol`, `fasting_glucose`, `fasting_insulin`, and `hba1c`
 - inflammatory and hormone concepts such as `inflammation_crp`, `homocysteine`, `il_6`, `testosterone_total`, and `tsh`
+- genetic concepts such as `apoe_genotype` and `mthfr_status`
 - wearable concepts such as `wearable_hrv_sleep_window`, `wearable_hrv_sdnn`, `resting_heart_rate`, `wearable_spo2`, and `wearable_vo2max_estimate`
 
 Each source value should keep both:
@@ -120,6 +121,7 @@ The current interpretation layer is intentionally conservative.
 - review decisions remain separate from canonical measurements until explicit promotion occurs
 - promoted measurements can now preserve either numeric values or reviewed text/bounded values
 - bounded and text-valued report measurements now keep their qualifier or wording explicit in clinician-facing interpretation
+- direct report intake now also carries first genetic categorical findings without pretending they are trendable lab values
 - promotion records remain separate from the measurement row so audit trails survive later edits
 
 The system should prefer:

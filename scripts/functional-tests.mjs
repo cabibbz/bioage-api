@@ -1071,6 +1071,7 @@ const scenarios = [
         entries: [
           { name: "Index biological age", value: 45.2, unit: "years" },
           { name: "OMICm FitAge", value: 42.7, unit: "years" },
+          { name: "APOE Genotype", textValue: "e3/e4" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
@@ -1082,16 +1083,17 @@ const scenarios = [
         ],
       });
 
-      assert.equal(report.normalizationSummary.totalEntries, 10);
+      assert.equal(report.normalizationSummary.totalEntries, 11);
       assert.equal(report.normalizationSummary.mappedEntries, report.measurements.length);
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        10,
+        11,
       );
       assert.deepEqual(
         report.measurements.map((measurement) => measurement.canonicalCode).sort(),
         [
+          "apoe_genotype",
           "apob",
           "epigenetic_biological_age",
           "epigenetic_fitness_age",
@@ -1104,6 +1106,11 @@ const scenarios = [
         ].sort(),
       );
       assert.deepEqual(report.unmappedEntries, [{ sourceField: "Mystery Marker", value: 12.3, unit: "arb" }]);
+      const apoeMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "apoe_genotype");
+      assert.ok(apoeMeasurement);
+      assert.equal(apoeMeasurement.textValue, "e3/e4");
+      assert.equal(apoeMeasurement.unit, undefined);
+      assert.ok(apoeMeasurement.note.includes("exact allele notation"));
       const crpMeasurement = report.measurements.find(
         (measurement) => measurement.canonicalCode === "inflammation_crp",
       );
@@ -1159,6 +1166,12 @@ const scenarios = [
       );
       assert.ok(persistedCrpMeasurement);
       assert.ok(persistedCrpMeasurement.interpretation.includes("bounded result <0.3 mg/L"));
+      const persistedApoeMeasurement = after.patient.measurements.find(
+        (measurement) =>
+          measurement.canonicalCode === "apoe_genotype" && measurement.observedAt === "2026-04-04T09:00:00.000Z",
+      );
+      assert.ok(persistedApoeMeasurement);
+      assert.ok(persistedApoeMeasurement.interpretation.includes("categorical result e3/e4"));
     },
   },
   {

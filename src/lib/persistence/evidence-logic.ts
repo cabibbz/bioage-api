@@ -45,6 +45,10 @@ export function summarizeMeasurement(measurement: NormalizedMeasurement) {
 export function buildInterpretation(measurement: NormalizedMeasurement) {
   if (measurement.value === undefined) {
     const renderedValue = formatMeasurementValue(measurement);
+    if (measurement.modality === "genetic") {
+      return `Genetic variant finding preserved as the reported categorical result ${renderedValue}. Keep the exact allele or mutation wording, source assay, and static non-trending nature explicit in clinician review.`;
+    }
+
     if (getMeasurementValueKind(measurement) === "bounded") {
       return `Structured preventive-health measurement preserved as the reported bounded result ${renderedValue}. Keep the operator and source threshold context before comparing trends or intervention effects.`;
     }

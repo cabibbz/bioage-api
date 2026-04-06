@@ -38,6 +38,18 @@ export type NormalizedReportPayload = {
   unmappedEntries: UnmappedEntry[];
 };
 
+function buildNormalizationReviewNote(modality: MeasurementModality) {
+  if (modality === "epigenetic") {
+    return "Preserve source report and vendor method details before clinician review.";
+  }
+
+  if (modality === "genetic") {
+    return "Preserve the exact allele or variant wording and assay provenance before downstream interpretation.";
+  }
+
+  return "Suitable for timeline ingestion after unit and reference-range review.";
+}
+
 export function normalizeReportPayload(input: NormalizeInput): NormalizedReportPayload {
   const measurements: NormalizedMeasurement[] = [];
   const unmappedEntries: UnmappedEntry[] = [];
@@ -69,9 +81,7 @@ export function normalizeReportPayload(input: NormalizeInput): NormalizedReportP
         observedAt: input.observedAt,
         confidence: normalizeCatalogKey(match.aliases[0]) === normalizedName ? "high" : "moderate",
         note: [
-          match.modality === "epigenetic"
-            ? "Preserve source report and vendor method details before clinician review."
-            : "Suitable for timeline ingestion after unit and reference-range review.",
+          buildNormalizationReviewNote(match.modality),
           normalizedValue.note,
           match.notes,
         ]
@@ -92,9 +102,7 @@ export function normalizeReportPayload(input: NormalizeInput): NormalizedReportP
       observedAt: input.observedAt,
       confidence: normalizeCatalogKey(match.aliases[0]) === normalizedName ? "high" : "moderate",
       note: [
-        match.modality === "epigenetic"
-          ? "Preserve source report and vendor method details before clinician review."
-          : "Suitable for timeline ingestion after unit and reference-range review.",
+        buildNormalizationReviewNote(match.modality),
         "Preserved reported text/bounded result without numeric conversion.",
         match.notes,
       ]

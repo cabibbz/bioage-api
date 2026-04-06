@@ -1,6 +1,6 @@
 import { CanonicalMeasurement } from "@/src/lib/domain/types";
 
-type MeasurementValueInput = Pick<CanonicalMeasurement, "value" | "textValue" | "unit">;
+type MeasurementValueInput = Pick<CanonicalMeasurement, "value" | "textValue" | "unit" | "modality">;
 const boundedValuePattern = /^(<=|>=|<|>)/;
 
 export function getMeasurementValueKind(input: MeasurementValueInput) {
@@ -12,6 +12,10 @@ export function getMeasurementValueKind(input: MeasurementValueInput) {
     return "bounded" as const;
   }
 
+  if (input.modality === "genetic") {
+    return "categorical" as const;
+  }
+
   return "text" as const;
 }
 
@@ -19,6 +23,10 @@ export function getMeasurementValueKindLabel(input: MeasurementValueInput) {
   const kind = getMeasurementValueKind(input);
   if (kind === "bounded") {
     return "bounded result";
+  }
+
+  if (kind === "categorical") {
+    return "categorical result";
   }
 
   if (kind === "text") {

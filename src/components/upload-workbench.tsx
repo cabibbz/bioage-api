@@ -11,6 +11,7 @@ const demoPayload = {
   entries: [
     { name: "Index biological age", value: 45.1, unit: "years" },
     { name: "OMICm FitAge", value: 43.4, unit: "years" },
+    { name: "APOE Genotype", textValue: "e3/e4" },
     { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
     { name: "LDL-C", value: 2.1, unit: "mmol/L" },
     { name: "Glucose", value: 5.4, unit: "mmol/L" },
