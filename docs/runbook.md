@@ -71,8 +71,8 @@ This runs:
 - browser workbench coverage now requires both a successful path and an invalid-action path for every discovered interactive workbench
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
 - live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
-- the browser document path now uploads a ZIP archive and verifies extracted-child document rendering plus multi-task parser output on `/`
-- the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against persisted state
+- the browser document path now uploads multiple ZIP archives and verifies extracted-child rendering plus parser-list overflow behavior on `/`
+- the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 

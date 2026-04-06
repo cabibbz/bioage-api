@@ -506,12 +506,12 @@ function csvFixture() {
   );
 }
 
-async function zipFixture() {
+async function zipFixture(prefix) {
   const zip = new JSZip();
-  zip.file("labs/ui-functional-labs.csv", csvFixture());
+  zip.file(`labs/${prefix}-labs.csv`, csvFixture());
   zip.file(
-    "notes/ui-functional-note.txt",
-    "ApoB trend remains the main follow-up target after omega-3 and training changes.",
+    `notes/${prefix}-note.txt`,
+    `${prefix} follow-up note: ApoB trend remains the main target after omega-3 and training changes.`,
   );
   return zip.generateAsync({ type: "nodebuffer" });
 }
@@ -602,16 +602,24 @@ async function main() {
     coveredDashboardHeadings.add("Clinician prep");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
 
-    const documentFilename = "ui-functional.zip";
-    const childCsvFilename = "ui-functional-labs.csv";
-    const childTextFilename = "ui-functional-note.txt";
-    const documentArchive = await zipFixture();
+    const documentArchives = await Promise.all(
+      ["ui-functional-a", "ui-functional-b", "ui-functional-c"].map(async (prefix) => ({
+        prefix,
+        archiveFilename: `${prefix}.zip`,
+        childCsvFilename: `${prefix}-labs.csv`,
+        childTextFilename: `${prefix}-note.txt`,
+        sourceSystem: `UI functional upload ${prefix.toUpperCase()}`,
+        buffer: await zipFixture(prefix),
+      })),
+    );
+    const [firstArchive, ...additionalArchives] = documentArchives;
+    const latestArchive = documentArchives[documentArchives.length - 1];
     const documentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("   ");
     await documentSection.locator('input[type="file"]').setInputFiles({
-      name: documentFilename,
+      name: firstArchive.archiveFilename,
       mimeType: "application/zip",
-      buffer: documentArchive,
+      buffer: firstArchive.buffer,
     });
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: '"error": "patientId, sourceSystem, and file are required."' }).waitFor();
@@ -620,33 +628,51 @@ async function main() {
     log("document", "rejected blank source-system upload without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Upload a source file");
-    await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("UI functional upload");
+    await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);
     await documentSection.locator('input[type="file"]').setInputFiles({
-      name: documentFilename,
+      name: firstArchive.archiveFilename,
       mimeType: "application/zip",
-      buffer: documentArchive,
+      buffer: firstArchive.buffer,
     });
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
-    await documentSection.locator("pre").filter({ hasText: `"originalFilename": "${documentFilename}"` }).waitFor();
+    await documentSection.locator("pre").filter({ hasText: `"originalFilename": "${firstArchive.archiveFilename}"` }).waitFor();
     await refreshDashboard(page);
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
-    await sourceDocumentsSection.getByText(documentFilename, { exact: true }).waitFor();
-    await sourceDocumentsSection.getByText(childCsvFilename, { exact: true }).waitFor();
-    await sourceDocumentsSection.getByText(childTextFilename, { exact: true }).waitFor();
-    await parseTasksSection.getByText(documentFilename, { exact: true }).waitFor();
+    await sourceDocumentsSection.getByText(firstArchive.archiveFilename, { exact: true }).waitFor();
+    await sourceDocumentsSection.getByText(firstArchive.childCsvFilename, { exact: true }).waitFor();
+    await sourceDocumentsSection.getByText(firstArchive.childTextFilename, { exact: true }).waitFor();
+    await parseTasksSection.getByText(firstArchive.archiveFilename, { exact: true }).waitFor();
     await parseTasksSection.getByText("archive_manifest", { exact: true }).waitFor();
-    await parseTasksSection.getByText(childCsvFilename, { exact: true }).waitFor();
-    await parseTasksSection.getByText(childTextFilename, { exact: true }).waitFor();
+    await parseTasksSection.getByText(firstArchive.childCsvFilename, { exact: true }).waitFor();
+    await parseTasksSection.getByText(firstArchive.childTextFilename, { exact: true }).waitFor();
+    for (const archive of additionalArchives) {
+      await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(archive.sourceSystem);
+      await documentSection.locator('input[type="file"]').setInputFiles({
+        name: archive.archiveFilename,
+        mimeType: "application/zip",
+        buffer: archive.buffer,
+      });
+      await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+      await documentSection.locator("pre").filter({ hasText: `"originalFilename": "${archive.archiveFilename}"` }).waitFor();
+      await refreshDashboard(page);
+      await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+      await sourceDocumentsSection.getByText(archive.archiveFilename, { exact: true }).waitFor();
+      await sourceDocumentsSection.getByText(archive.childCsvFilename, { exact: true }).waitFor();
+      await sourceDocumentsSection.getByText(archive.childTextFilename, { exact: true }).waitFor();
+      await parseTasksSection.getByText(archive.archiveFilename, { exact: true }).waitFor();
+      await parseTasksSection.getByText(archive.childCsvFilename, { exact: true }).waitFor();
+      await parseTasksSection.getByText(archive.childTextFilename, { exact: true }).waitFor();
+    }
     coveredDashboardHeadings.add("Stored source documents");
     coveredDashboardHeadings.add("Document parse tasks");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
-    log("document", "uploaded a ZIP archive through the UI and observed extracted children plus parser tasks on the page");
+    log("document", "uploaded multiple ZIP archives through the UI and verified extracted-child plus parser-list overflow rendering");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
     const reviewErrorSnapshot = await loadPersistedSnapshot();
-    await waitForSelectOptionContaining(parseTaskSelect, childCsvFilename);
-    await parseTaskSelect.selectOption({ label: `${childCsvFilename} | csv_table` });
+    await waitForSelectOptionContaining(parseTaskSelect, latestArchive.childCsvFilename);
+    await parseTaskSelect.selectOption({ label: `${latestArchive.childCsvFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
     await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("   ");
@@ -660,8 +686,8 @@ async function main() {
     log("review", "rejected blank reviewer input without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
-    await waitForSelectOptionContaining(parseTaskSelect, childCsvFilename);
-    await parseTaskSelect.selectOption({ label: `${childCsvFilename} | csv_table` });
+    await waitForSelectOptionContaining(parseTaskSelect, latestArchive.childCsvFilename);
+    await parseTaskSelect.selectOption({ label: `${latestArchive.childCsvFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
     await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician");
@@ -764,7 +790,11 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, snapshot);
     log("intervention", "saved an intervention through the UI");
 
-    assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === documentFilename));
+    documentArchives.forEach((archive) => {
+      assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === archive.archiveFilename));
+      assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === archive.childCsvFilename));
+      assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === archive.childTextFilename));
+    });
     assert.ok(snapshot.reviewDecisions.some((decision) => decision.reviewerName === "UI clinician"));
     assert.ok(snapshot.measurementPromotions.some((promotion) => promotion.canonicalCode === "apob"));
     assert.ok(snapshot.reportIngestions.some((ingestion) => ingestion.vendor === "Hurdle"));
