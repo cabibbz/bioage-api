@@ -69,7 +69,7 @@ This runs:
 - patient-route contract checks that compare `GET /api/patients/[patientId]` directly against the persisted backend snapshot after every functional scenario
 - route-breadth inventory rules that require every discovered API route method to have both a success path and an error path in the functional suite
 - trim-aware required-field validation coverage so blank or whitespace-only request fields fail with the documented `400` responses
-- committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
+- committed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`, with the same flow now runnable against both file-backed and Postgres-backed persistence
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
 - browser workbench coverage now requires both a successful path and an invalid-action path for every discovered interactive workbench
 - browser workbench coverage now also requires a backend-error path for every discovered interactive workbench
@@ -124,6 +124,12 @@ For browser-driven UI coverage only:
 npm run test:ui:file
 ```
 
+With `DATABASE_URL` configured, you can also run the same UI flow against Postgres:
+
+```bash
+npm run test:ui:postgres
+```
+
 The UI script installs Playwright Chromium automatically on first run if it is missing.
 
 To export the current JSON seed into SQL inserts for the Postgres target:
@@ -157,7 +163,7 @@ npm run bootstrap:postgres
 npm run test:functional:postgres
 ```
 
-`npm run test:functional:postgres` resets the app tables before every scenario, so use a disposable dev database.
+`npm run test:functional:postgres` and `npm run test:ui:postgres` reset the app tables, so use a disposable dev database.
 
 ## Known Gaps
 
@@ -174,5 +180,4 @@ npm run test:functional:postgres
 - PDF, image, HTML, and XLS/XLSX formats remain review-only
 - ZIP ingestion does not yet recurse into nested archives
 - backend parity is only checked when `DATABASE_URL` is configured
-- the committed browser suite currently covers the file-backed path only
 - the committed browser suite exercises Chromium only, not a cross-browser matrix

@@ -125,6 +125,7 @@ async function main() {
         FUNCTIONAL_ALLOW_DB_RESET: "1",
       },
     });
+    await run("npm.cmd", ["run", "test:ui:postgres"]);
     await run("npm.cmd", ["run", "test:functional:parity"]);
   } else if (requirePostgres) {
     throw new Error("DATABASE_URL is required because META_VERIFY_REQUIRE_POSTGRES=1.");

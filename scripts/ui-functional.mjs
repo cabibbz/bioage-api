@@ -7,13 +7,15 @@ import { chromium } from "playwright";
 import JSZip from "jszip";
 import { resolveCanonicalCodeForName } from "./lib/canonical-catalog.mjs";
 import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
+import { applySchemaAndSeed } from "./lib/postgres-admin.mjs";
 
 const repoRoot = process.cwd();
+const backend = process.env.PERSISTENCE_BACKEND?.trim().toLowerCase() === "postgres" ? "postgres" : "file";
 const patientId = "pt_001";
 const storePath = path.join(repoRoot, "data", "store.json");
 const uploadsPath = path.join(repoRoot, "data", "uploads");
 const nextCli = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
-const port = Number(process.env.UI_FUNCTIONAL_PORT?.trim() || "3160");
+const port = Number(process.env.UI_FUNCTIONAL_PORT?.trim() || (backend === "postgres" ? "3161" : "3160"));
 const baseUrl = `http://127.0.0.1:${port}`;
 const workbenchHeadings = new Set([
   "Upload a source file",
@@ -24,7 +26,7 @@ const workbenchHeadings = new Set([
 ]);
 
 function log(step, detail) {
-  console.log(`[ui-functional:file] ${step}: ${detail}`);
+  console.log(`[ui-functional:${backend}] ${step}: ${detail}`);
 }
 
 async function waitForServer() {
@@ -68,6 +70,36 @@ async function prepareFileBackend(tempDir, baselineUploads) {
       await resetUploads(baselineUploads);
     },
   };
+}
+
+async function preparePostgresBackend(baselineUploads) {
+  if (
+    process.env.UI_FUNCTIONAL_ALLOW_DB_RESET !== "1" &&
+    process.env.FUNCTIONAL_ALLOW_DB_RESET !== "1" &&
+    process.env.SMOKE_ALLOW_DB_RESET !== "1"
+  ) {
+    throw new Error(
+      "Refusing to reset Postgres state for UI functional testing without UI_FUNCTIONAL_ALLOW_DB_RESET=1.",
+    );
+  }
+
+  await applySchemaAndSeed({ reset: true });
+  await resetUploads(baselineUploads);
+
+  return {
+    async cleanup() {
+      await applySchemaAndSeed({ reset: true });
+      await resetUploads(baselineUploads);
+    },
+  };
+}
+
+async function prepareBackend(tempDir, baselineUploads) {
+  if (backend === "postgres") {
+    return preparePostgresBackend(baselineUploads);
+  }
+
+  return prepareFileBackend(tempDir, baselineUploads);
 }
 
 async function run(command, args) {
@@ -411,7 +443,7 @@ function normalizeWhitespace(value) {
 
 async function loadPersistedSnapshot() {
   const snapshot = await loadPersistedPatientSnapshot({
-    backend: "file",
+    backend,
     patientId,
     repoRoot,
   });
@@ -937,7 +969,7 @@ async function zipFixture(prefix) {
 async function main() {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "longevity-ui-functional-"));
   const baselineUploads = await listUploadFiles();
-  const backend = await prepareFileBackend(tempDir, baselineUploads);
+  const backendHandle = await prepareBackend(tempDir, baselineUploads);
 
   const server = spawn(process.execPath, [nextCli, "start", "--port", String(port)], {
     cwd: repoRoot,
@@ -945,7 +977,7 @@ async function main() {
     env: {
       ...process.env,
       NEXT_TELEMETRY_DISABLED: "1",
-      PERSISTENCE_BACKEND: "file",
+      PERSISTENCE_BACKEND: backend,
     },
   });
 
@@ -1996,7 +2028,7 @@ async function main() {
     await browser?.close();
     server.kill("SIGTERM");
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    await backend.cleanup();
+    await backendHandle.cleanup();
     await rm(tempDir, { recursive: true, force: true });
 
     if (server.exitCode !== null && server.exitCode !== 0) {
@@ -2006,6 +2038,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`[ui-functional:file] failed: ${error instanceof Error ? error.stack : String(error)}`);
+  console.error(`[ui-functional:${backend}] failed: ${error instanceof Error ? error.stack : String(error)}`);
   process.exit(1);
 });
