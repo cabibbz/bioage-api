@@ -44,19 +44,33 @@ function normalizeMthfrStatus(sourceValue: string): TextNormalizationResult {
   const hasA1298C = normalizedInput.includes("a1298c");
   const hasHomozygous = normalizedInput.includes("homozygous");
   const hasHeterozygous = normalizedInput.includes("heterozygous") || /\bhet\b/.test(normalizedInput);
+  const hasOneCopyCue = /\b(?:one|single|1)\s+copy\b/.test(normalizedInput);
+  const hasTwoCopyCue = /\b(?:two|double|2)\s+cop(?:y|ies)\b/.test(normalizedInput);
   const hasCompoundCue = /(compound|comp(?:ound)?|double)\s+(heterozygous|het)/.test(normalizedInput);
+  const hasNegativeCue =
+    normalizedInput.includes("not detected") ||
+    normalizedInput.includes("negative") ||
+    normalizedInput.includes("no mutation detected") ||
+    normalizedInput.includes("no variant detected");
 
   let normalizedValue: string | undefined;
 
-  if (hasC677T && hasA1298C && !hasHomozygous && (hasCompoundCue || hasHeterozygous)) {
+  if (hasNegativeCue && !hasC677T && !hasA1298C) {
+    normalizedValue = "no common variant detected";
+  } else if (
+    hasC677T &&
+    hasA1298C &&
+    !hasHomozygous &&
+    (hasCompoundCue || hasHeterozygous || hasOneCopyCue)
+  ) {
     normalizedValue = "compound heterozygous C677T/A1298C";
-  } else if (hasC677T && hasHomozygous) {
+  } else if (hasC677T && (hasHomozygous || hasTwoCopyCue)) {
     normalizedValue = "C677T homozygous";
-  } else if (hasC677T && hasHeterozygous) {
+  } else if (hasC677T && (hasHeterozygous || hasOneCopyCue)) {
     normalizedValue = "C677T heterozygous";
-  } else if (hasA1298C && hasHomozygous) {
+  } else if (hasA1298C && (hasHomozygous || hasTwoCopyCue)) {
     normalizedValue = "A1298C homozygous";
-  } else if (hasA1298C && hasHeterozygous) {
+  } else if (hasA1298C && (hasHeterozygous || hasOneCopyCue)) {
     normalizedValue = "A1298C heterozygous";
   }
 

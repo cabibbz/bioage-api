@@ -2054,8 +2054,8 @@ async function main() {
         [
           { name: "Index biological age", value: 45.1, unit: "years" },
           { name: "OMICm FitAge", value: 43.4, unit: "years" },
-          { name: "APOE Genotype", textValue: "APOE 4/3" },
-          { name: "MTHFR Mutation", textValue: "compound het c677t / a1298c" },
+          { name: "APOE Genotype", textValue: "APOE e4/e3 genotype" },
+          { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
@@ -2080,10 +2080,7 @@ async function main() {
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "apoe_genotype"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"textValue": "e3/e4"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "mthfr_status"' }).waitFor();
-    await reportSection
-      .locator("pre")
-      .filter({ hasText: '"textValue": "compound heterozygous C677T/A1298C"' })
-      .waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"textValue": "C677T heterozygous"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "fasting_glucose"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"value": 97.3' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "inflammation_crp"' }).waitFor();

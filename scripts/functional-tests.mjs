@@ -1071,8 +1071,8 @@ const scenarios = [
         entries: [
           { name: "Index biological age", value: 45.2, unit: "years" },
           { name: "OMICm FitAge", value: 42.7, unit: "years" },
-          { name: "APOE Genotype", textValue: "APOE 4/3" },
-          { name: "MTHFR Mutation", textValue: "compound het c677t / a1298c" },
+          { name: "APOE Genotype", textValue: "APOE e4/e3 genotype" },
+          { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
@@ -1112,14 +1112,14 @@ const scenarios = [
       assert.ok(apoeMeasurement);
       assert.equal(apoeMeasurement.textValue, "e3/e4");
       assert.equal(apoeMeasurement.unit, undefined);
-      assert.ok(apoeMeasurement.note.includes('from "APOE 4/3" to "e3/e4"'));
+      assert.ok(apoeMeasurement.note.includes('from "APOE e4/e3 genotype" to "e3/e4"'));
       const mthfrMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "mthfr_status");
       assert.ok(mthfrMeasurement);
-      assert.equal(mthfrMeasurement.textValue, "compound heterozygous C677T/A1298C");
+      assert.equal(mthfrMeasurement.textValue, "C677T heterozygous");
       assert.equal(mthfrMeasurement.unit, undefined);
       assert.ok(
         mthfrMeasurement.note.includes(
-          'from "compound het c677t / a1298c" to "compound heterozygous C677T/A1298C"',
+          'from "positive for one copy of C677T variant" to "C677T heterozygous"',
         ),
       );
       const crpMeasurement = report.measurements.find(
@@ -1188,9 +1188,7 @@ const scenarios = [
           measurement.canonicalCode === "mthfr_status" && measurement.observedAt === "2026-04-04T09:00:00.000Z",
       );
       assert.ok(persistedMthfrMeasurement);
-      assert.ok(
-        persistedMthfrMeasurement.interpretation.includes("categorical result compound heterozygous C677T/A1298C"),
-      );
+      assert.ok(persistedMthfrMeasurement.interpretation.includes("categorical result C677T heterozygous"));
     },
   },
   {
