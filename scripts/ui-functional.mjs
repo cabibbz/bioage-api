@@ -888,6 +888,7 @@ async function main() {
     const discoveredDashboardHeadings = await discoverDashboardSectionHeadings(page);
     const successfulWorkbenchHeadings = new Set();
     const errorWorkbenchHeadings = new Set();
+    const backendErrorWorkbenchHeadings = new Set();
     const coveredDashboardHeadings = new Set([
       "What the first customers are buying",
       "Signals needing clinician review",
@@ -937,6 +938,44 @@ async function main() {
       })),
     );
     const [firstArchive, ...additionalArchives] = documentArchives;
+    const documentBackendErrorSnapshot = await loadPersistedSnapshot();
+    await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);
+    await documentSection.locator('input[type="file"]').setInputFiles({
+      name: firstArchive.archiveFilename,
+      mimeType: "application/zip",
+      buffer: firstArchive.buffer,
+    });
+    await page.route(
+      "**/api/intake/document",
+      async (route) => {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: "Document intake backend unavailable.",
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    await documentSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Document intake backend unavailable."' })
+      .waitFor();
+    await assertDocumentDraftState(documentSection, {
+      sourceSystem: firstArchive.sourceSystem,
+      filePreviewText: firstArchive.archiveFilename,
+    });
+    backendErrorWorkbenchHeadings.add("Upload a source file");
+    await assertUiStateUnchangedAfterError(
+      page,
+      sections,
+      documentBackendErrorSnapshot,
+      discoveredWorkbenchHeadings,
+    );
+    log("document", "surfaced a backend document error without mutating persisted state or dropping the current draft");
+
     const missingFileDocumentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: '"error": "Choose a file first."' }).waitFor();
@@ -1096,6 +1135,54 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, reviewErrorSnapshot, discoveredWorkbenchHeadings);
     log("review", "rejected a blank reviewer locally without mutating persisted state");
 
+    const reviewBackendErrorSnapshot = await loadPersistedSnapshot();
+    await waitForSelectOptionValue(parseTaskSelect, errorReviewTarget.task.id);
+    await parseTaskSelect.selectOption({ value: errorReviewTarget.task.id });
+    await waitForSelectOptionValue(candidateSelect, errorReviewTarget.candidate.id);
+    await candidateSelect.selectOption({ value: errorReviewTarget.candidate.id });
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Reviewer" })
+      .locator("input")
+      .fill("UI clinician backend error");
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Proposed canonical mapping" })
+      .locator("select")
+      .selectOption(firstReviewTarget.proposedCanonicalCode);
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Note" })
+      .locator("textarea")
+      .fill("Backend error coverage should preserve the current review draft.");
+    await page.route(
+      "**/api/review/decision",
+      async (route) => {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: "Review backend unavailable.",
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await reviewSection.locator("pre").filter({ hasText: '"error": "Review backend unavailable."' }).waitFor();
+    await assertReviewFormState(reviewSection, {
+      action: "accept",
+      reviewerName: "UI clinician backend error",
+      proposedCanonicalCode: firstReviewTarget.proposedCanonicalCode,
+      note: "Backend error coverage should preserve the current review draft.",
+    });
+    await waitForReviewCandidateSnapshot(reviewSection, errorReviewTarget.candidate);
+    await waitForInputValue(parseTaskSelect, errorReviewTarget.task.id);
+    await waitForInputValue(candidateSelect, errorReviewTarget.candidate.id);
+    backendErrorWorkbenchHeadings.add("Adjudicate parser candidates");
+    await assertUiStateUnchangedAfterError(page, sections, reviewBackendErrorSnapshot, discoveredWorkbenchHeadings);
+    log("review", "surfaced a backend review error without mutating persisted state or dropping the current draft");
+
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
     const snapshotBeforeTextReview = await loadPersistedSnapshot();
     const nonNumericReviewTarget = resolveReviewTarget(
@@ -1228,6 +1315,7 @@ async function main() {
     await assertPromotionSelectionState(promotionSection, promotionErrorDecision.id);
     await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
     errorWorkbenchHeadings.add("Promote accepted decisions");
+    backendErrorWorkbenchHeadings.add("Promote accepted decisions");
     await assertUiStateUnchangedAfterError(page, sections, promotionErrorSnapshot, discoveredWorkbenchHeadings);
     log("promotion", "rejected an invalid promotion request without mutating persisted state");
 
@@ -1455,6 +1543,39 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
     log("review", "removed the promoted candidate from the editable review queue and retargeted to the next editable record");
 
+    const reportBackendErrorSnapshot = await loadPersistedSnapshot();
+    await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
+    await reportSection
+      .locator("label")
+      .filter({ hasText: "Entries JSON" })
+      .locator("textarea")
+      .fill('[{"name":"Backend coverage marker","value":1}]');
+    await page.route(
+      "**/api/intake/report",
+      async (route) => {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: "Report intake backend unavailable.",
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
+    await reportSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Report intake backend unavailable."' })
+      .waitFor();
+    await assertReportDraftState(reportSection, {
+      vendor: "Hurdle",
+      payloadText: '[{"name":"Backend coverage marker","value":1}]',
+    });
+    backendErrorWorkbenchHeadings.add("Report intake and normalization");
+    await assertUiStateUnchangedAfterError(page, sections, reportBackendErrorSnapshot, discoveredWorkbenchHeadings);
+    log("report", "surfaced a backend report error without mutating persisted state or dropping the current draft");
+
     const reportJsonErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill("{");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
@@ -1519,6 +1640,46 @@ async function main() {
     coveredDashboardHeadings.add("Interventions and evidence windows");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("report", "ran report normalization through the UI");
+
+    const interventionBackendErrorSnapshot = await loadPersistedSnapshot();
+    await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI backend intervention");
+    await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").fill("2026-04-06");
+    await interventionSection
+      .locator("label")
+      .filter({ hasText: "Detail" })
+      .locator("textarea")
+      .fill("Backend error coverage should preserve this intervention draft.");
+    await page.route(
+      "**/api/intake/intervention",
+      async (route) => {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: "Intervention backend unavailable.",
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
+    await interventionSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Intervention backend unavailable."' })
+      .waitFor();
+    await assertInterventionDraftState(interventionSection, {
+      title: "UI backend intervention",
+      occurredAt: "2026-04-06",
+      detail: "Backend error coverage should preserve this intervention draft.",
+    });
+    backendErrorWorkbenchHeadings.add("Tag a protocol change");
+    await assertUiStateUnchangedAfterError(
+      page,
+      sections,
+      interventionBackendErrorSnapshot,
+      discoveredWorkbenchHeadings,
+    );
+    log("intervention", "surfaced a backend intervention error without mutating persisted state or dropping the current draft");
 
     const interventionDateErrorSnapshot = await loadPersistedSnapshot();
     await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").fill("");
@@ -1623,6 +1784,7 @@ async function main() {
     assert.ok(snapshot.patient.timeline.some((event) => event.title === "UI intervention checkpoint"));
     assert.deepEqual([...successfulWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
     assert.deepEqual([...errorWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
+    assert.deepEqual([...backendErrorWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
     assert.deepEqual([...coveredDashboardHeadings].sort(), discoveredDashboardHeadings);
     log("verification", "page interactions, error handling, and persisted state matched");
   } finally {

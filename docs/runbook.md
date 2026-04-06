@@ -69,6 +69,7 @@ This runs:
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
 - browser workbench coverage now requires both a successful path and an invalid-action path for every discovered interactive workbench
+- browser workbench coverage now also requires a backend-error path for every discovered interactive workbench
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
 - live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
 - invalid-action browser paths now also prove the current draft form or selected record survives the error before any refresh occurs
