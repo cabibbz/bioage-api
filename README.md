@@ -12,7 +12,7 @@ Clinic-facing preventive-health software that turns uploaded reports and wearabl
 - upload workbench for testing mappings
 - parser-task queue with deterministic summaries
 - clinician review-decision layer
-- measurement-promotion layer for accepted numeric decisions
+- measurement-promotion layer for accepted reviewed decisions
 - repository abstraction with a file-backed default backend and implemented Postgres backend
 - binary-storage abstraction with a local default backend and object-storage target
 
@@ -82,6 +82,6 @@ To apply the schema plus seed into a target database from the repo, run `npm run
 
 1. Validate the Postgres backend against a live local database and keep the Postgres functional path green.
 2. Add object storage for source reports.
-3. Add promotion for accepted text and categorical review decisions.
+3. Broaden direct report intake plus interpretation beyond numeric-only entries.
 4. Add Terra wearable ingestion.
 5. Add one EHR / practice integration.

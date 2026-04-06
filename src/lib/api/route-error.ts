@@ -10,7 +10,7 @@ function classifyStatus(message: string) {
     message.includes("cannot be promoted") ||
     message.includes("cannot be changed") ||
     message.includes("does not include a proposed canonical mapping") ||
-    message.includes("does not have a numeric value")
+    message.includes("does not include a promotable value")
   ) {
     return 400;
   }

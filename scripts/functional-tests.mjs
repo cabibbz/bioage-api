@@ -168,6 +168,10 @@ function sortNormalizedList(entries) {
   return [...entries].sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
 }
 
+function candidateHasPromotableValue(candidate) {
+  return candidate.numericValue !== undefined || Boolean(candidate.textValue?.trim());
+}
+
 function normalizeCandidates(candidates) {
   return sortNormalizedList(
     candidates.map((candidate) => ({
@@ -197,7 +201,8 @@ function normalizeSnapshotForParity(snapshot) {
           modality: measurement.modality,
           sourceVendor: measurement.sourceVendor,
           observedAt: measurement.observedAt,
-          value: measurement.value,
+          value: measurement.value ?? null,
+          textValue: measurement.textValue ?? null,
           unit: measurement.unit ?? null,
           interpretation: measurement.interpretation,
           evidenceStatus: measurement.evidenceStatus,
@@ -1697,9 +1702,9 @@ const scenarios = [
     },
   },
   {
-    name: "promotion-rejects-non-numeric-candidates",
+    name: "promotion-promotes-text-candidates",
     covers: ["POST /api/review/promote"],
-    coverageType: "error",
+    coverageType: "success",
     async run() {
       const upload = await postMultipart("/api/intake/document", {
         patientId,
@@ -1710,7 +1715,7 @@ const scenarios = [
         }),
       });
 
-      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue === undefined);
+      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue === undefined && candidateHasPromotableValue(candidate));
       assert.ok(target);
 
       const decision = await postJson("/api/review/decision", {
@@ -1723,18 +1728,22 @@ const scenarios = [
       });
 
       const beforePromotion = await getPatientSnapshot();
-      const failedPromotion = await postJson(
-        "/api/review/promote",
-        {
-          patientId,
-          reviewDecisionId: decision.decision.id,
-        },
-        400,
-      );
+      const promoted = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: decision.decision.id,
+      });
 
-      const afterPromotionAttempt = await getPatientSnapshot();
-      assert.ok(failedPromotion.error.includes("does not have a numeric value"));
-      assert.deepEqual(countSnapshot(afterPromotionAttempt), countSnapshot(beforePromotion));
+      const afterPromotion = await getPatientSnapshot();
+      assert.equal(promoted.alreadyPromoted, false);
+      assert.equal(promoted.measurement.canonicalCode, "apob");
+      assert.equal(promoted.measurement.textValue, "borderline high");
+      assert.equal(promoted.measurement.value, undefined);
+      assert.equal(promoted.measurement.unit, undefined);
+      assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
     },
   },
 ];

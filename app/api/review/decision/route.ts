@@ -63,7 +63,8 @@ export async function POST(request: Request) {
       nextActions:
         persisted.decision.action === "accept"
           ? [
-              "Promote accepted numeric decisions into canonical measurements when appropriate.",
+              "Promote accepted mapped decisions into canonical measurements when appropriate.",
+              "Keep value-type-specific interpretation explicit for numeric, bounded, and text results.",
               "Keep review and promotion audit trails separate from the source file.",
               "Track acceptance rates by parser and source system.",
             ]

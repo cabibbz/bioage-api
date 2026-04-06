@@ -13,7 +13,7 @@ Current system shape:
 - ZIP archive indexing with supported child-document extraction
 - parser-task queue with deterministic summaries and review-only states
 - clinician review-decision layer for parser candidates
-- measurement-promotion layer for accepted numeric decisions
+- measurement-promotion layer for accepted reviewed decisions
 - clinician dashboard surface for timeline review
 - intervention intake route for protocol/event tagging
 
@@ -39,7 +39,7 @@ Current non-goals:
 8. Deterministic parsers summarize FHIR JSON, generic JSON, CSV, TXT, C-CDA structure, and ZIP manifests immediately.
 9. PDF, image, HTML, binary spreadsheet, and unknown formats are marked for review instead of being force-parsed.
 10. `POST /api/review/decision` stores clinician decisions against parser candidates and appends audit notes to the patient timeline.
-11. `POST /api/review/promote` promotes accepted numeric decisions into canonical measurements and stores promotion audit records.
+11. `POST /api/review/promote` promotes accepted reviewed decisions with numeric or text values into canonical measurements and stores promotion audit records.
 12. `POST /api/intake/intervention` persists protocol changes directly into the timeline.
 13. The client refreshes and the page reflects the newly stored data.
 
@@ -49,6 +49,6 @@ Current non-goals:
 - move source report binaries into object storage with checksums
 - add field-level review queues for unmapped metrics
 - separate source ingestion from clinician-facing projections
-- support promotion for accepted text/categorical decisions
+- broaden direct report intake plus interpretation beyond numeric-only entries
 - broaden unit-aware normalization beyond the current safe alternate-unit rules
 - support vendor-specific and multimodal PDF parsing only after review semantics exist

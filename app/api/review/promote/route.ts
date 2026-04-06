@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       },
       nextActions: [
         "Review the promoted measurement in the patient signal board.",
+        "Harden value-type-specific interpretation and display rules for bounded and categorical promotions.",
         "Track promotion rates by parser, source system, and canonical code.",
         "Add field-level promotion audit UI before enabling bulk promotion.",
       ],

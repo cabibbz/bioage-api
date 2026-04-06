@@ -24,7 +24,7 @@ export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWo
     return new Set(
       tasks.flatMap((task) =>
         task.candidates
-          .filter((candidate) => candidate.numericValue !== undefined)
+          .filter((candidate) => candidate.numericValue !== undefined || Boolean(candidate.textValue?.trim()))
           .map((candidate) => `${task.id}:${candidate.id}`),
       ),
     );
@@ -113,7 +113,7 @@ export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWo
           <div className="section-kicker">Promotion</div>
           <h2 className="section-title">Promote accepted decisions</h2>
           <p className="section-copy">
-            Only accepted, mapped, numeric candidates can move into the canonical measurement record.
+            Accepted, mapped review decisions can move reviewed numeric, bounded, and text values into the canonical record.
           </p>
         </div>
         <span className="pill">{promotions.length} promotions</span>
@@ -123,7 +123,7 @@ export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWo
         <div className="detail-card">
           <div className="detail-label">No pending promotions</div>
           <p className="detail-copy">
-            Accept, map, and verify a numeric parser candidate first, then it will appear here for promotion.
+            Accept, map, and verify a parser candidate first, then it will appear here for promotion.
           </p>
         </div>
       ) : (

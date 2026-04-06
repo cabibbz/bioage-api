@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { PatientRecord } from "@/src/lib/domain/types";
 import { NormalizedMeasurement, UnmappedEntry } from "@/src/lib/normalization/normalize";
 import {
+  ParsedMeasurementCandidate,
   SourceDocumentClassification,
   SourceDocumentStatus,
   StoredSourceDocument,
@@ -86,4 +87,27 @@ export function toPatientMeasurement(
     confidenceLabel: measurement.confidence === "high" ? "high" : "moderate",
     deltaLabel: "New baseline",
   };
+}
+
+export function candidateHasPromotableValue(candidate: ParsedMeasurementCandidate) {
+  return candidate.numericValue !== undefined || Boolean(candidate.textValue?.trim());
+}
+
+export function toPromotedMeasurementValue(candidate: ParsedMeasurementCandidate) {
+  if (candidate.numericValue !== undefined) {
+    return {
+      value: candidate.numericValue,
+      unit: candidate.unit,
+    } as const;
+  }
+
+  const textValue = candidate.textValue?.trim();
+  if (textValue) {
+    return {
+      textValue,
+      unit: candidate.unit,
+    } as const;
+  }
+
+  throw new Error(`Candidate ${candidate.displayName} does not include a promotable value yet.`);
 }

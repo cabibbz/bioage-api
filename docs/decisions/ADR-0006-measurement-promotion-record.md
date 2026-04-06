@@ -12,7 +12,7 @@ Current rule set:
 
 - only accepted review decisions can be promoted
 - the decision must include a proposed canonical mapping
-- only numeric candidates are promotable in v1
+- promoted candidates may carry numeric or reviewed text/bounded values
 - promotion writes a canonical measurement and a promotion audit record
 - promotion remains traceable to review decision, parse task, and source document
 
@@ -27,5 +27,5 @@ Benefits:
 Costs:
 
 - the persistence model grows again
-- text or categorical promotions remain deferred
+- direct report intake still does not accept non-numeric entries
 - bulk promotion and conflict handling still need future design

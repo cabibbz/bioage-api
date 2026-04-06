@@ -42,7 +42,7 @@ The product should keep:
 4. promotion record
 5. canonical measurement
 
-My strongest opinion: promotion should be explicit and auditable, and should start with accepted numeric candidates only.
+My strongest opinion: promotion should stay explicit and auditable first, then widen from numeric candidates to reviewed text and bounded values without collapsing provenance.
 
 ## Sources
 

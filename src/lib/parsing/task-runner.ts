@@ -221,7 +221,11 @@ function buildValueLabel(value: { numericValue?: number; textValue?: string; uni
     return `${value.numericValue}${value.unit ? ` ${value.unit}` : ""}`;
   }
 
-  return value.textValue ?? "No result value";
+  if (value.textValue !== undefined) {
+    return `${value.textValue}${value.unit ? ` ${value.unit}` : ""}`;
+  }
+
+  return "No result value";
 }
 
 function extractObservationCandidate(resource: GenericRecord, sourcePath: string) {

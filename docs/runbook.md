@@ -38,7 +38,7 @@ Recent verified flows:
 - a live parser probe produced four completed parse tasks with parsers `archive_manifest`, `fhir_bundle`, `csv_table`, and `text_note`
 - clinician review decisions can now be posted into `/api/review/decision` and are stored separately from canonical measurements
 - a live review probe accepted a FHIR candidate, increased stored review decisions from `0` to `1`, and increased timeline events from `4` to `6`
-- accepted numeric review decisions can now be promoted through `/api/review/promote`
+- accepted mapped review decisions can now be promoted through `/api/review/promote`
 - a live promotion probe promoted a reviewed CSV ApoB candidate and increased stored measurements from `4` to `5`
 - the committed functional suite now resets state between scenarios and exercises every API route plus every registered parser/review classification
 - the functional suite now discovers exported API route methods under `app/api` and fails if any route lacks a claiming scenario
@@ -96,7 +96,7 @@ This runs:
 - the review workbench now hydrates its form from any existing saved decision for the selected candidate, and the browser suite verifies those reopened values before updating the decision again
 - the review workbench reset path now restores the current candidate's persisted or default form state without changing selection, and the browser suite verifies unsaved edits are discarded locally
 - canonical mappings are now accept-only: non-accept review saves strip any stale mapping input, the review UI clears the mapping when the action changes away from `accept`, and both suites verify that contract
-- the promotion workbench now only queues accepted mapped decisions whose parser candidate is numeric, and the browser suite verifies a mapped text-valued FHIR observation stays out of that queue
+- the promotion workbench now queues accepted mapped decisions whose parser candidate has a promotable numeric or text value, and the browser suite verifies a mapped text-valued FHIR observation can move through that queue too
 - promoted review decisions are now immutable: the API suite verifies post-promotion review-save attempts fail with `400` and leave persisted state unchanged, while the browser suite verifies promoted candidates disappear from the editable review queue
 - the report workbench now returns stable client-side errors for malformed JSON plus non-array or malformed entries before issuing a request, and the browser suite verifies all three local guards
 - the intervention workbench now returns stable client-side errors for blank title/detail and blank or invalid dates before issuing a request, and the browser suite verifies all three local guards
@@ -182,7 +182,7 @@ npm run test:functional:postgres
 - no auth or HIPAA controls yet
 - no migration framework yet
 - intervention events are not yet connected to outcome windows
-- only numeric accepted decisions are promotable in v1
+- direct report intake still accepts numeric entries only; text and bounded values currently reach the canonical record through reviewed parser promotion
 - object storage is still a stub behind the storage adapter
 - full session verification only exercises Postgres when `DATABASE_URL` is configured
 - the bootstrap script is additive only and does not reset a database

@@ -60,6 +60,26 @@ function readNumber(row, key) {
   throw new Error(`Expected ${key} to be numeric.`);
 }
 
+function readOptionalNumber(row, key) {
+  const value = row[key];
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
 function readJson(row, key, fallback) {
   const value = row[key];
   if (value === null || value === undefined) {
@@ -146,6 +166,13 @@ function deriveRelativePath(storageBackend, storageKey) {
 function mapMeasurement(row) {
   const unit = readOptionalText(row, "unit");
   const deltaLabel = readOptionalText(row, "delta_label");
+  const numericValue = readOptionalNumber(row, "numeric_value");
+  const textValue = readOptionalText(row, "text_value");
+
+  if (numericValue === undefined && !textValue) {
+    throw new Error(`Measurement ${readText(row, "id")} does not include a stored value.`);
+  }
+
   return {
     id: readText(row, "id"),
     title: readText(row, "title"),
@@ -153,10 +180,10 @@ function mapMeasurement(row) {
     modality: readText(row, "modality"),
     sourceVendor: readText(row, "source_vendor"),
     observedAt: toIsoString(row.observed_at),
-    value: readNumber(row, "numeric_value"),
     interpretation: readText(row, "interpretation"),
     evidenceStatus: readText(row, "evidence_status"),
     confidenceLabel: readText(row, "confidence_label"),
+    ...(numericValue !== undefined ? { value: numericValue } : { textValue }),
     ...(unit ? { unit } : {}),
     ...(deltaLabel ? { deltaLabel } : {}),
   };
@@ -292,7 +319,7 @@ async function loadPostgresPatient(pool, patientId) {
 
   const measurementRows = await queryRows(
     pool,
-    `select id, canonical_code, title, modality, source_vendor, observed_at, numeric_value, unit,
+    `select id, canonical_code, title, modality, source_vendor, observed_at, numeric_value, text_value, unit,
             interpretation, evidence_status, confidence_label, delta_label
       from patient_measurements
       where patient_id = $1

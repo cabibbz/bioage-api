@@ -18,14 +18,36 @@ create table if not exists patient_measurements (
   modality text not null,
   source_vendor text not null,
   observed_at timestamptz not null,
-  numeric_value double precision not null,
+  numeric_value double precision,
+  text_value text,
   unit text,
   interpretation text not null,
   evidence_status text not null,
   confidence_label text not null,
   delta_label text,
+  constraint patient_measurements_has_value
+    check (numeric_value is not null or text_value is not null),
   created_at timestamptz not null default now()
 );
+
+alter table if exists patient_measurements
+  alter column numeric_value drop not null;
+
+alter table if exists patient_measurements
+  add column if not exists text_value text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'patient_measurements_has_value'
+  ) then
+    alter table patient_measurements
+      add constraint patient_measurements_has_value
+      check (numeric_value is not null or text_value is not null);
+  end if;
+end $$;
 
 create index if not exists idx_patient_measurements_patient_observed
   on patient_measurements (patient_id, observed_at desc);

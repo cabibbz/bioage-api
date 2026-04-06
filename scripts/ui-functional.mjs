@@ -482,6 +482,22 @@ function sortNormalizedList(entries) {
   return [...entries].sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
 }
 
+function candidateHasPromotableValue(candidate) {
+  return candidate.numericValue !== undefined || Boolean(candidate.textValue?.trim());
+}
+
+function formatMeasurementValue(measurement) {
+  if (measurement.value !== undefined && measurement.value !== null) {
+    return `${measurement.value}${measurement.unit ? ` ${measurement.unit}` : ""}`;
+  }
+
+  if (measurement.textValue !== undefined && measurement.textValue !== null) {
+    return `${measurement.textValue}${measurement.unit ? ` ${measurement.unit}` : ""}`;
+  }
+
+  return measurement.unit ? `No value ${measurement.unit}` : "No value";
+}
+
 function normalizeCandidates(candidates) {
   return sortNormalizedList(
     candidates.map((candidate) => ({
@@ -511,7 +527,8 @@ function normalizeSnapshotForParity(snapshot) {
           modality: measurement.modality,
           sourceVendor: measurement.sourceVendor,
           observedAt: measurement.observedAt,
-          value: measurement.value,
+          value: measurement.value ?? null,
+          textValue: measurement.textValue ?? null,
           unit: measurement.unit ?? null,
           interpretation: measurement.interpretation,
           evidenceStatus: measurement.evidenceStatus,
@@ -767,7 +784,7 @@ function pendingPromotionDecisions(snapshot) {
   const promotableCandidateKeys = new Set(
     snapshot.parseTasks.flatMap((task) =>
       task.candidates
-        .filter((candidate) => candidate.numericValue !== undefined)
+        .filter((candidate) => candidateHasPromotableValue(candidate))
         .map((candidate) => `${task.id}:${candidate.id}`),
     ),
   );
@@ -822,7 +839,7 @@ async function assertSignalCardsMatchSnapshot(section, snapshot) {
 
     assert.equal(
       (await card.locator(".signal-value").textContent())?.trim(),
-      `${measurement.value}${measurement.unit ? ` ${measurement.unit}` : ""}`,
+      formatMeasurementValue(measurement),
     );
 
     if (measurement.deltaLabel) {
@@ -1387,7 +1404,7 @@ async function main() {
       sourceSystem: "UI functional text observation",
       reviewerName: "UI clinician text accept",
       proposedCanonicalCode: "apob",
-      note: "Accepted text-valued observation to prove it stays out of the promotion queue.",
+      note: "Accepted text-valued observation to prove text promotion works end to end.",
     };
     const { acceptedReviewTargets, nonAcceptReviewTargets } = reviewCoverageTargets;
     const firstReviewTarget = acceptedReviewTargets[0];
@@ -1536,14 +1553,17 @@ async function main() {
     );
     assert.ok(nonNumericDecision, "Accepted text-valued review decision should persist.");
     assert.equal(nonNumericDecision.proposedCanonicalCode, nonNumericObservation.proposedCanonicalCode);
-    assert.equal(pendingPromotionDecisions(afterTextReview).length, 0);
-    await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
+    assert.equal(pendingPromotionDecisions(afterTextReview).length, 1);
+    assert.ok(
+      (await readSelectOptionValues(promotionSection.locator("select").first())).includes(nonNumericDecision.id),
+      "Accepted text-valued decisions should appear in the promotion queue.",
+    );
     await assertDashboardMatchesSnapshot(sections, afterTextReview);
     parityCheckpoints.push({
       label: "text_review_saved",
       state: normalizeSnapshotForParity(afterTextReview),
     });
-    log("review", "accepted a text-valued observation and verified it stayed out of the promotion queue");
+    log("review", "accepted a text-valued observation and verified it entered the promotion queue");
 
     await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("reject");
     await reviewSection.locator("pre").filter({ hasText: "Review-decision output will appear here." }).waitFor();
@@ -1598,8 +1618,8 @@ async function main() {
     const afterAcceptedReviews = await loadPersistedSnapshot();
     const promotionOptionValuesAfterAcceptedReviews = await readSelectOptionValues(promotionSection.locator("select").first());
     assert.ok(
-      !promotionOptionValuesAfterAcceptedReviews.includes(nonNumericDecision.id),
-      "Accepted non-numeric decisions should not appear in the promotion queue.",
+      promotionOptionValuesAfterAcceptedReviews.includes(nonNumericDecision.id),
+      "Accepted text-valued decisions should remain in the promotion queue until promoted.",
     );
     await assertDashboardMatchesSnapshot(sections, afterAcceptedReviews);
     parityCheckpoints.push({
@@ -1687,8 +1707,7 @@ async function main() {
     const promotionOptionValues = await readSelectOptionValues(promotionSelect);
     assert.ok(promotionOptionValues.length > 1, "Promotion reset coverage requires multiple pending decisions.");
     const nonDefaultPromotionDecisionId = promotionOptionValues[promotionOptionValues.length - 1];
-    const nonDefaultPromotionDecision = acceptedReviewTargets
-      .map((target) => resolveReviewDecisionBySelection(promotionErrorSnapshot, target.parseTaskId, target.candidateId))
+    const nonDefaultPromotionDecision = pendingPromotionDecisions(promotionErrorSnapshot)
       .find((decision) => decision.id === nonDefaultPromotionDecisionId);
     assert.ok(nonDefaultPromotionDecision, "Expected reset coverage decision to resolve from persisted state.");
     await promotionSelect.selectOption({ value: nonDefaultPromotionDecisionId });
@@ -1703,7 +1722,14 @@ async function main() {
     log("promotion", "reset the promotion workbench back to the first pending decision and cleared local result state");
 
     successfulWorkbenchHeadings.add("Promote accepted decisions");
-    for (const [index, target] of acceptedReviewTargets.entries()) {
+    const promotionTargets = [
+      ...acceptedReviewTargets,
+      {
+        parseTaskId: nonNumericReviewTarget.task.id,
+        candidateId: nonNumericReviewTarget.candidate.id,
+      },
+    ];
+    for (const [index, target] of promotionTargets.entries()) {
       const snapshotBeforePromotion = await loadPersistedSnapshot();
       const decision = resolveReviewDecisionBySelection(
         snapshotBeforePromotion,
@@ -1714,7 +1740,7 @@ async function main() {
       await promotionSelect.selectOption({ value: decision.id });
       await waitForPromotionSnapshot(promotionSection, decision);
       await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
-      if (index < acceptedReviewTargets.length - 1) {
+      if (index < promotionTargets.length - 1) {
         const remainingPromotionOptionValues = await waitForSelectOptionValueToDisappear(promotionSelect, decision.id);
         if (index === 0) {
           const afterFirstPromotion = await loadPersistedSnapshot();
@@ -1748,7 +1774,7 @@ async function main() {
       label: "accepted_promotions_applied",
       state: normalizeSnapshotForParity(afterAcceptedPromotions),
     });
-    log("promotion", "promoted five accepted decisions through the UI and verified recent-promotion overflow rendering");
+    log("promotion", "promoted accepted numeric and text decisions through the UI and verified recent-promotion overflow rendering");
 
     for (const target of nonAcceptReviewTargets) {
       const snapshotBeforeReview = await loadPersistedSnapshot();

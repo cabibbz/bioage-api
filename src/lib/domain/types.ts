@@ -12,6 +12,16 @@ export type EvidenceStatus = "stable" | "improving" | "watch" | "conflicted";
 
 export type TimelineEventType = "assessment" | "intervention" | "note";
 
+export type CanonicalMeasurementValue =
+  | {
+      value: number;
+      textValue?: undefined;
+    }
+  | {
+      value?: undefined;
+      textValue: string;
+    };
+
 export type CanonicalMeasurement = {
   id: string;
   title: string;
@@ -19,13 +29,12 @@ export type CanonicalMeasurement = {
   modality: MeasurementModality;
   sourceVendor: string;
   observedAt: string;
-  value: number;
   unit?: string;
   interpretation: string;
   evidenceStatus: EvidenceStatus;
   confidenceLabel: "high" | "moderate" | "review";
   deltaLabel?: string;
-};
+} & CanonicalMeasurementValue;
 
 export type TimelineEvent = {
   id: string;

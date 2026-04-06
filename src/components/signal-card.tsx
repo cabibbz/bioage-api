@@ -1,3 +1,4 @@
+import { formatMeasurementValue } from "@/src/lib/domain/measurements";
 import { CanonicalMeasurement } from "@/src/lib/domain/types";
 
 type SignalCardProps = {
@@ -23,10 +24,7 @@ export function SignalCard({ measurement }: SignalCardProps) {
       </div>
 
       <div className="signal-value-row">
-        <div className="signal-value">
-          {measurement.value}
-          {measurement.unit ? ` ${measurement.unit}` : ""}
-        </div>
+        <div className="signal-value">{formatMeasurementValue(measurement)}</div>
         {measurement.deltaLabel ? <div className="signal-delta">{measurement.deltaLabel}</div> : null}
       </div>
 
@@ -37,4 +35,3 @@ export function SignalCard({ measurement }: SignalCardProps) {
     </article>
   );
 }
-

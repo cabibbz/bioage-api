@@ -11,10 +11,12 @@ import { canonicalCatalog } from "@/src/lib/normalization/catalog";
 import { runParseTask, toSourceDocumentStatus } from "@/src/lib/parsing/task-runner";
 import {
   buildDocumentStatus,
+  candidateHasPromotableValue,
   summarizeArchiveExtraction,
   summarizeMeasurement,
   summarizeSourceDocument,
   toPatientMeasurement,
+  toPromotedMeasurementValue,
 } from "@/src/lib/persistence/evidence-logic";
 import { getPostgresPool, toIsoString, withPostgresTransaction } from "@/src/lib/persistence/postgres-client";
 import {
@@ -84,6 +86,26 @@ function readNumber(row: DbRow, key: string): number {
   throw new Error(`Expected ${key} to be numeric.`);
 }
 
+function readOptionalNumber(row: DbRow, key: string): number | undefined {
+  const value = row[key];
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
 function readJson<T>(row: DbRow, key: string, fallback: T): T {
   const value = row[key];
   if (value === null || value === undefined) {
@@ -118,6 +140,13 @@ function deriveRelativePath(storageBackend: StoredSourceDocument["storageBackend
 function mapMeasurement(row: DbRow): PatientRecord["measurements"][number] {
   const unit = readOptionalText(row, "unit");
   const deltaLabel = readOptionalText(row, "delta_label");
+  const numericValue = readOptionalNumber(row, "numeric_value");
+  const textValue = readOptionalText(row, "text_value");
+
+  if (numericValue === undefined && !textValue) {
+    throw new Error(`Measurement ${readText(row, "id")} does not include a stored value.`);
+  }
+
   return {
     id: readText(row, "id"),
     title: readText(row, "title"),
@@ -125,10 +154,10 @@ function mapMeasurement(row: DbRow): PatientRecord["measurements"][number] {
     modality: readText(row, "modality") as MeasurementModality,
     sourceVendor: readText(row, "source_vendor"),
     observedAt: toIsoString(row.observed_at),
-    value: readNumber(row, "numeric_value"),
     interpretation: readText(row, "interpretation"),
     evidenceStatus: readText(row, "evidence_status") as PatientRecord["measurements"][number]["evidenceStatus"],
     confidenceLabel: readText(row, "confidence_label") as PatientRecord["measurements"][number]["confidenceLabel"],
+    ...(numericValue !== undefined ? { value: numericValue } : { textValue: textValue as string }),
     ...(unit ? { unit } : {}),
     ...(deltaLabel ? { deltaLabel } : {}),
   };
@@ -282,7 +311,7 @@ async function loadPatientRecord(executor: Queryable, patientId: string): Promis
 
   const measurementRows = await queryRows(
     executor,
-    `select id, canonical_code, title, modality, source_vendor, observed_at, numeric_value, unit,
+    `select id, canonical_code, title, modality, source_vendor, observed_at, numeric_value, text_value, unit,
             interpretation, evidence_status, confidence_label, delta_label
       from patient_measurements
       where patient_id = $1
@@ -407,13 +436,14 @@ async function insertMeasurement(
       source_vendor,
       observed_at,
       numeric_value,
+      text_value,
       unit,
       interpretation,
       evidence_status,
       confidence_label,
       delta_label,
       created_at
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
     [
       measurement.id,
       patientId,
@@ -422,7 +452,8 @@ async function insertMeasurement(
       measurement.modality,
       measurement.sourceVendor,
       measurement.observedAt,
-      measurement.value,
+      measurement.value ?? null,
+      measurement.textValue ?? null,
       measurement.unit ?? null,
       measurement.interpretation,
       measurement.evidenceStatus,
@@ -1132,14 +1163,15 @@ export const postgresEvidenceRepository: EvidenceRepository = {
         throw new Error(`Candidate ${reviewDecision.candidateId} was not found for promotion.`);
       }
 
-      if (candidate.numericValue === undefined) {
-        throw new Error(`Candidate ${candidate.displayName} does not have a numeric value and cannot be promoted yet.`);
+      if (!candidateHasPromotableValue(candidate)) {
+        throw new Error(`Candidate ${candidate.displayName} does not include a promotable value yet.`);
       }
 
       const sourceDocument = await findSourceDocument(client, reviewDecision.sourceDocumentId);
       const observedAt = candidate.observedAt ?? sourceDocument?.observedAt ?? reviewDecision.updatedAt;
       const now = new Date().toISOString();
       const measurementId = randomUUID();
+      const promotedValue = toPromotedMeasurementValue(candidate);
       const promotedMeasurement: PatientRecord["measurements"][number] = {
         id: measurementId,
         title: reviewDecision.proposedTitle,
@@ -1149,8 +1181,7 @@ export const postgresEvidenceRepository: EvidenceRepository = {
           ? `${sourceDocument.sourceSystem} reviewed parser candidate`
           : "Reviewed parser candidate",
         observedAt,
-        value: candidate.numericValue,
-        unit: candidate.unit,
+        ...promotedValue,
         interpretation:
           "Clinician accepted parser candidate and promoted it into the longitudinal record. Preserve source provenance and compare against prior timepoints.",
         evidenceStatus: "stable",

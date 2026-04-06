@@ -52,7 +52,7 @@ Current persistence boundary:
 Patient records currently include:
 
 - demographic summary
-- measurements
+- measurements with either numeric `value` or `textValue`
 - timeline events
 - clinician focus string
 
@@ -118,6 +118,7 @@ The current interpretation layer is intentionally conservative.
 - extracted child documents inherit archive provenance but still remain first-class source-document records
 - parser candidates remain separate from canonical measurements until human review exists
 - review decisions remain separate from canonical measurements until explicit promotion occurs
+- promoted measurements can now preserve either numeric values or reviewed text/bounded values
 - promotion records remain separate from the measurement row so audit trails survive later edits
 
 The system should prefer:

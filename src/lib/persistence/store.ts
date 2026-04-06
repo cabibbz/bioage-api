@@ -12,11 +12,13 @@ import { PatientRecord, TimelineEvent } from "@/src/lib/domain/types";
 import {
   buildDocumentStatus,
   buildInterpretation,
+  candidateHasPromotableValue,
   summarizeArchiveExtraction,
   summarizeMeasurement,
   summarizeSourceDocument,
   toEvidenceStatus,
   toPatientMeasurement,
+  toPromotedMeasurementValue,
 } from "@/src/lib/persistence/evidence-logic";
 import {
   NormalizedMeasurement,
@@ -389,13 +391,14 @@ export async function promoteReviewDecision(input: {
     throw new Error(`Candidate ${reviewDecision.candidateId} was not found for promotion.`);
   }
 
-  if (candidate.numericValue === undefined) {
-    throw new Error(`Candidate ${candidate.displayName} does not have a numeric value and cannot be promoted yet.`);
+  if (!candidateHasPromotableValue(candidate)) {
+    throw new Error(`Candidate ${candidate.displayName} does not include a promotable value yet.`);
   }
 
   const sourceDocument = store.sourceDocuments.find((document) => document.id === reviewDecision.sourceDocumentId);
   const observedAt = candidate.observedAt ?? sourceDocument?.observedAt ?? reviewDecision.updatedAt;
   const measurementId = randomUUID();
+  const promotedValue = toPromotedMeasurementValue(candidate);
   const promotedMeasurement: PatientRecord["measurements"][number] = {
     id: measurementId,
     title: reviewDecision.proposedTitle,
@@ -405,8 +408,7 @@ export async function promoteReviewDecision(input: {
       ? `${sourceDocument.sourceSystem} reviewed parser candidate`
       : "Reviewed parser candidate",
     observedAt,
-    value: candidate.numericValue,
-    unit: candidate.unit,
+    ...promotedValue,
     interpretation:
       "Clinician accepted parser candidate and promoted it into the longitudinal record. Preserve source provenance and compare against prior timepoints.",
     evidenceStatus: "stable",
