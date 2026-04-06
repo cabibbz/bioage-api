@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         totalTimelineEvents: persisted.patient.timeline.length,
       },
       nextActions: [
-        "Expand vendor-specific categorical value normalization beyond the current ApoE SNP, MTHFR, and first qualitative, bounded, detection-limit, assay-qualified, positive-or-negative-for-process, prefix-style process, and result-labeled lab wording rules.",
+        "Expand vendor-specific categorical value normalization beyond the current ApoE SNP, MTHFR, and first qualitative, bounded, detection-limit, assay-qualified, positive-or-negative-for-process, prefix-style process, result-labeled, and parenthetical process lab wording rules.",
         "Expand unit-aware normalization beyond the current safe alternate-unit set.",
         "Keep growing the review-first mapping catalog with vendor-specific aliases, units, and LOINC coverage.",
       ],
