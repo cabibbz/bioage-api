@@ -827,6 +827,20 @@ function createBaseLabeledProcessTextFhirResource() {
   );
 }
 
+function createSlashSeparatedProcessTextFhirResource() {
+  return Buffer.from(
+    JSON.stringify({
+      resourceType: "Observation",
+      status: "final",
+      code: {
+        text: "CRP",
+      },
+      valueString: "SCREENING RESULT / POSITIVE",
+      effectiveDateTime: "2026-04-03T10:25:00.000Z",
+    }),
+  );
+}
+
 function createBoundedTextFhirResource() {
   return Buffer.from(
     JSON.stringify({
@@ -2154,6 +2168,68 @@ const scenarios = [
     },
   },
   {
+    name: "report-intake-normalizes-slash-separated-process-wording",
+    covers: ["POST /api/intake/report"],
+    coverageType: "success",
+    async run() {
+      const before = await getPatientSnapshot();
+      const report = await postJson("/api/intake/report", {
+        patientId,
+        vendor: "Functional slash-separator panel",
+        observedAt: "2026-04-04T12:25:00.000Z",
+        entries: [
+          { name: "CRP", textValue: "SCREENING RESULT / POSITIVE" },
+          { name: "Apolipoprotein B", textValue: "NEGATIVE / QUALITATIVE ASSAY" },
+          { name: "Glucose", textValue: "RESULT STATUS / NON REACTIVE" },
+        ],
+      });
+
+      assert.equal(report.normalizationSummary.totalEntries, 3);
+      assert.equal(report.normalizationSummary.mappedEntries, 3);
+      assert.equal(report.normalizationSummary.unmappedEntries, 0);
+
+      const crpMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "inflammation_crp");
+      assert.ok(crpMeasurement);
+      assert.equal(crpMeasurement.textValue, "positive");
+      assert.ok(crpMeasurement.note.includes('from "SCREENING RESULT / POSITIVE" to "positive"'));
+
+      const apobMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "apob");
+      assert.ok(apobMeasurement);
+      assert.equal(apobMeasurement.textValue, "negative");
+      assert.ok(apobMeasurement.note.includes('from "NEGATIVE / QUALITATIVE ASSAY" to "negative"'));
+
+      const glucoseMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "fasting_glucose");
+      assert.ok(glucoseMeasurement);
+      assert.equal(glucoseMeasurement.textValue, "non-reactive");
+      assert.ok(glucoseMeasurement.note.includes('from "RESULT STATUS / NON REACTIVE" to "non-reactive"'));
+
+      const after = await getPatientSnapshot();
+      assertCountDelta(countSnapshot(before), countSnapshot(after), {
+        measurements: 3,
+        reportIngestions: 1,
+        timeline: 1,
+      });
+
+      const persistedCrpMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "inflammation_crp" && measurement.observedAt === "2026-04-04T12:25:00.000Z",
+      );
+      assert.ok(persistedCrpMeasurement);
+      assert.ok(persistedCrpMeasurement.interpretation.includes("text or categorical result positive"));
+
+      const persistedApobMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "apob" && measurement.observedAt === "2026-04-04T12:25:00.000Z",
+      );
+      assert.ok(persistedApobMeasurement);
+      assert.ok(persistedApobMeasurement.interpretation.includes("text or categorical result negative"));
+
+      const persistedGlucoseMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "fasting_glucose" && measurement.observedAt === "2026-04-04T12:25:00.000Z",
+      );
+      assert.ok(persistedGlucoseMeasurement);
+      assert.ok(persistedGlucoseMeasurement.interpretation.includes("text or categorical result non-reactive"));
+    },
+  },
+  {
     name: "report-intake-missing-patient",
     covers: ["POST /api/intake/report"],
     coverageType: "error",
@@ -3232,6 +3308,55 @@ const scenarios = [
         sourceSystem: "Functional base-label observation",
         observedAt: "2026-04-05T12:20:00.000Z",
         file: new File([createBaseLabeledProcessTextFhirResource()], "functional-base-label-text-observation.json", {
+          type: "application/json",
+        }),
+      });
+
+      const target = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.numericValue === undefined && candidateHasPromotableValue(candidate),
+      );
+      assert.ok(target);
+
+      const decision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: target.task.id,
+        candidateId: target.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "inflammation_crp",
+      });
+
+      const beforePromotion = await getPatientSnapshot();
+      const promoted = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: decision.decision.id,
+      });
+
+      const afterPromotion = await getPatientSnapshot();
+      assert.equal(promoted.alreadyPromoted, false);
+      assert.equal(promoted.measurement.canonicalCode, "inflammation_crp");
+      assert.equal(promoted.measurement.textValue, "positive");
+      assert.equal(promoted.measurement.value, undefined);
+      assert.equal(promoted.measurement.unit, undefined);
+      assert.ok(promoted.measurement.interpretation.includes("text or categorical result positive"));
+      assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+    },
+  },
+  {
+    name: "promotion-normalizes-reviewed-slash-separated-process-values",
+    covers: ["POST /api/review/promote"],
+    coverageType: "success",
+    async run() {
+      const upload = await postMultipart("/api/intake/document", {
+        patientId,
+        sourceSystem: "Functional slash-separator observation",
+        observedAt: "2026-04-05T12:25:00.000Z",
+        file: new File([createSlashSeparatedProcessTextFhirResource()], "functional-slash-separator-text-observation.json", {
           type: "application/json",
         }),
       });
