@@ -1751,6 +1751,26 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
     log("report", "rejected a non-array entries payload locally without mutating persisted state");
 
+    const malformedReportEntrySnapshot = await loadPersistedSnapshot();
+    await reportSection
+      .locator("label")
+      .filter({ hasText: "Entries JSON" })
+      .locator("textarea")
+      .fill('[{"name":"Broken Entry","value":"not-a-number"}]');
+    await reportSection
+      .getByRole("button", { name: "Run normalization", exact: true })
+      .click();
+    await reportSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Each entry must include a non-empty string name and numeric value."' })
+      .waitFor();
+    await assertReportDraftState(reportSection, {
+      vendor: "TruDiagnostic",
+      payloadText: '[{"name":"Broken Entry","value":"not-a-number"}]',
+    });
+    await assertUiStateUnchangedAfterError(page, sections, malformedReportEntrySnapshot, discoveredWorkbenchHeadings);
+    log("report", "rejected a malformed report entry locally without mutating persisted state");
+
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('[{"name":"Edited value","value":1}]');
     await reportSection.locator("pre").filter({ hasText: "Normalization output will appear here." }).waitFor();
     log("report", "cleared stale result output when editing report intake inputs");

@@ -981,6 +981,17 @@ const scenarios = [
       );
       assert.equal(invalidEntries.error, "entries must be an array.");
 
+      const malformedEntry = await postJson(
+        "/api/intake/report",
+        {
+          patientId,
+          vendor: "Functional",
+          entries: [{ name: "Broken Entry", value: "not-a-number" }],
+        },
+        400,
+      );
+      assert.equal(malformedEntry.error, "Each entry must include a non-empty string name and numeric value.");
+
       const invalidObservedAt = await postJson(
         "/api/intake/report",
         {
@@ -1008,7 +1019,7 @@ const scenarios = [
           { name: "Biological Age", value: 45.2, unit: "years" },
           { name: "DunedinPACE", value: 0.91 },
           { name: "Mystery Marker", value: 12.3, unit: "arb" },
-          { name: "Broken Entry", value: "not-a-number" },
+          { name: "CRP", value: 1.4, unit: "mg/L" },
         ],
       });
 
@@ -1017,7 +1028,7 @@ const scenarios = [
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        3,
+        4,
       );
 
       const after = await getPatientSnapshot();

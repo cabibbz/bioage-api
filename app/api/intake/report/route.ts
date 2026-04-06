@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
 import { isValidIsoTimestamp, readOptionalString, readRequiredString } from "@/src/lib/api/validation";
+import { normalizeReportEntries } from "@/src/lib/intake/report-entries";
 import { normalizeReportPayload } from "@/src/lib/normalization/normalize";
 import { getEvidenceRepository } from "@/src/lib/persistence";
-
-type RawEntry = {
-  name?: unknown;
-  value?: unknown;
-  unit?: unknown;
-};
 
 type IntakeBody = {
   patientId?: unknown;
@@ -16,14 +11,6 @@ type IntakeBody = {
   observedAt?: unknown;
   entries?: unknown;
 };
-
-function isRawEntry(entry: RawEntry): entry is { name: string; value: number; unit?: string } {
-  return (
-    typeof entry.name === "string" &&
-    typeof entry.value === "number" &&
-    (typeof entry.unit === "string" || typeof entry.unit === "undefined")
-  );
-}
 
 export async function POST(request: Request) {
   let body: IntakeBody;
@@ -62,9 +49,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const validEntries = body.entries.filter((entry): entry is { name: string; value: number; unit?: string } =>
-    isRawEntry(entry as RawEntry),
-  );
+  const normalizedEntries = normalizeReportEntries(body.entries);
+  if (!normalizedEntries.ok) {
+    return NextResponse.json(
+      { error: normalizedEntries.error },
+      { status: 400 },
+    );
+  }
 
   try {
     const repository = getEvidenceRepository();
@@ -72,7 +63,7 @@ export async function POST(request: Request) {
       patientId,
       vendor,
       observedAt: observedAt ?? new Date().toISOString(),
-      entries: validEntries,
+      entries: normalizedEntries.entries,
     });
 
     const persisted = await repository.persistNormalizedReport({

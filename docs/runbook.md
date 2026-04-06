@@ -97,7 +97,7 @@ This runs:
 - canonical mappings are now accept-only: non-accept review saves strip any stale mapping input, the review UI clears the mapping when the action changes away from `accept`, and both suites verify that contract
 - the promotion workbench now only queues accepted mapped decisions whose parser candidate is numeric, and the browser suite verifies a mapped text-valued FHIR observation stays out of that queue
 - promoted review decisions are now immutable: the API suite verifies post-promotion review-save attempts fail with `400` and leave persisted state unchanged, while the browser suite verifies promoted candidates disappear from the editable review queue
-- the report workbench now returns stable client-side errors for malformed JSON and non-array entries before issuing a request, and the browser suite verifies both local guards
+- the report workbench now returns stable client-side errors for malformed JSON plus non-array or malformed entries before issuing a request, and the browser suite verifies all three local guards
 - the intervention workbench now returns stable client-side errors for blank title/detail and blank or invalid dates before issuing a request, and the browser suite verifies all three local guards
 - report, intervention, and document intake routes now also reject malformed backend timestamp fields, and the functional suite verifies invalid `observedAt` and `occurredAt` payloads directly
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured

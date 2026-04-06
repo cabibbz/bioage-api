@@ -2,6 +2,7 @@
 
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
+import { normalizeReportEntries } from "@/src/lib/intake/report-entries";
 
 const demoPayload = {
   patientId: "pt_001",
@@ -38,6 +39,12 @@ export function UploadWorkbench() {
         return;
       }
 
+      const normalizedEntries = normalizeReportEntries(parsedEntries);
+      if (!normalizedEntries.ok) {
+        setResult(JSON.stringify({ error: normalizedEntries.error }, null, 2));
+        return;
+      }
+
       setIsSubmitting(true);
       setResult("");
 
@@ -50,7 +57,7 @@ export function UploadWorkbench() {
           patientId: demoPayload.patientId,
           vendor,
           observedAt: demoPayload.observedAt,
-          entries: parsedEntries,
+          entries: normalizedEntries.entries,
         }),
       });
 
