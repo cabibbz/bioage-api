@@ -472,8 +472,27 @@ async function expectJson(url, options, expectedStatus) {
   return result.json;
 }
 
+async function assertPatientSnapshotResponseContract(result, targetPatientId) {
+  if (!result?.patientSnapshot || typeof targetPatientId !== "string") {
+    return result;
+  }
+
+  const snapshot = await getPatientSnapshot(targetPatientId);
+  assert.equal(result.patientSnapshot.lastReviewedAt, snapshot.patient.lastReviewedAt);
+
+  if ("totalMeasurements" in result.patientSnapshot) {
+    assert.equal(result.patientSnapshot.totalMeasurements, snapshot.patient.measurements.length);
+  }
+
+  if ("totalTimelineEvents" in result.patientSnapshot) {
+    assert.equal(result.patientSnapshot.totalTimelineEvents, snapshot.patient.timeline.length);
+  }
+
+  return result;
+}
+
 async function postJson(pathname, payload, expectedStatus = 200) {
-  return expectJson(
+  const result = await expectJson(
     `${baseUrl}${pathname}`,
     {
       method: "POST",
@@ -484,6 +503,12 @@ async function postJson(pathname, payload, expectedStatus = 200) {
     },
     expectedStatus,
   );
+
+  if (expectedStatus >= 400) {
+    return result;
+  }
+
+  return assertPatientSnapshotResponseContract(result, payload?.patientId);
 }
 
 async function postRawJson(pathname, body, expectedStatus) {
@@ -511,7 +536,7 @@ async function postMultipart(pathname, fields, expectedStatus = 200) {
     }
   }
 
-  return expectJson(
+  const result = await expectJson(
     `${baseUrl}${pathname}`,
     {
       method: "POST",
@@ -519,6 +544,12 @@ async function postMultipart(pathname, fields, expectedStatus = 200) {
     },
     expectedStatus,
   );
+
+  if (expectedStatus >= 400) {
+    return result;
+  }
+
+  return assertPatientSnapshotResponseContract(result, fields?.patientId);
 }
 
 async function getPatientSnapshot(targetPatientId = patientId, expectedStatus = 200) {

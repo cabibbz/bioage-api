@@ -24,6 +24,7 @@
 - changed verification to check Postgres seed drift without rewriting `db/seed-from-store.sql`, and made typecheck non-incremental so `verify:meta` no longer dirties tracked artifacts
 - made `verify:meta` compare git status before and after the run so verification now fails if it mutates the worktree relative to its starting state
 - upgraded the browser suite so dashboard pills, clinician-prep counts, and signal-board titles are checked against the live patient API snapshot after each workflow step
+- upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 
 ### 2026-04-05
 

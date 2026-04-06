@@ -62,6 +62,7 @@ This runs:
 - SQL seed drift check against `db/seed-from-store.sql` without rewriting the tracked file
 - a post-run git-status guard so `npm run verify:meta` fails if verification changes the worktree relative to its starting state
 - committed file-backed functional coverage across route validation, report intake, intervention intake, review, promotion, and every document/parser classification
+- mutation response contracts that compare every successful `patientSnapshot` summary against the persisted patient state
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
