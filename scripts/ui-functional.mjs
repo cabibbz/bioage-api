@@ -128,6 +128,32 @@ async function waitForSelectOptionContaining(selectLocator, text) {
   throw new Error(`Timed out waiting for select option containing "${text}".`);
 }
 
+async function discoverInteractiveWorkbenchHeadings(page) {
+  const headings = await page.locator("section").evaluateAll((sections) =>
+    sections
+      .flatMap((section) => {
+        const actionButton = section.querySelector("button");
+        const inputControl = section.querySelector("input, select, textarea");
+        const heading = section.querySelector("h1, h2, h3, h4, h5, h6");
+        if (!actionButton || !inputControl || !heading) {
+          return [];
+        }
+
+        const text = heading.textContent?.trim();
+        return text ? [text] : [];
+      })
+      .sort(),
+  );
+
+  return [...new Set(headings)];
+}
+
+async function mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings) {
+  for (const heading of await discoverInteractiveWorkbenchHeadings(page)) {
+    discoveredWorkbenchHeadings.add(heading);
+  }
+}
+
 function csvFixture() {
   return Buffer.from(
     [
@@ -177,6 +203,9 @@ async function main() {
     await page.getByRole("heading", { name: "Upload a source file", exact: true }).waitFor();
     await page.getByRole("heading", { name: "Report intake and normalization", exact: true }).waitFor();
     await page.getByRole("heading", { name: "Tag a protocol change", exact: true }).waitFor();
+    const discoveredWorkbenchHeadings = new Set();
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    const visitedWorkbenchHeadings = new Set();
     log("page", "workbenches rendered");
 
     const sourceDocumentsSection = sectionByHeading(page, "Stored source documents");
@@ -189,6 +218,7 @@ async function main() {
     const interventionSection = sectionByHeading(page, "Tag a protocol change");
 
     const documentFilename = "ui-functional.csv";
+    visitedWorkbenchHeadings.add("Upload a source file");
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("UI functional upload");
     await documentSection.locator('input[type="file"]').setInputFiles({
       name: documentFilename,
@@ -198,6 +228,7 @@ async function main() {
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: `"originalFilename": "${documentFilename}"` }).waitFor();
     await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await sourceDocumentsSection.getByText(documentFilename, { exact: true }).waitFor();
     await parseTasksSection.getByText(documentFilename, { exact: true }).waitFor();
     await parseTasksSection.getByText("csv_table", { exact: true }).waitFor();
@@ -205,6 +236,7 @@ async function main() {
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
+    visitedWorkbenchHeadings.add("Adjudicate parser candidates");
     await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
     await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
@@ -215,26 +247,32 @@ async function main() {
     await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
     await reviewSection.locator("pre").filter({ hasText: '"action": "accept"' }).waitFor();
     await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await reviewSection.getByText("UI clinician").waitFor();
     await parseTasksSection.getByText("1 reviewed").waitFor();
     log("review", "accepted and mapped a parser candidate through the UI");
 
     const promotionSelect = promotionSection.locator("select").first();
+    visitedWorkbenchHeadings.add("Promote accepted decisions");
     await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
     await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
     await promotionSection.locator("pre").filter({ hasText: '"canonicalCode": "apob"' }).waitFor();
     await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await promotionSection.getByText("ApoB", { exact: true }).waitFor();
     await timelineSection.getByText("ApoB promoted into canonical record").waitFor();
     log("promotion", "promoted the accepted review decision through the UI");
 
+    visitedWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
     await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 3' }).waitFor();
     await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("Hurdle report normalized").waitFor();
     log("report", "ran report normalization through the UI");
 
+    visitedWorkbenchHeadings.add("Tag a protocol change");
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI intervention checkpoint");
     await interventionSection.locator("label").filter({ hasText: "Detail" }).locator("textarea").fill(
       "Added a UI-level intervention event to confirm timeline refresh behavior.",
@@ -242,6 +280,7 @@ async function main() {
     await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
     await interventionSection.locator("pre").filter({ hasText: '"totalTimelineEvents"' }).waitFor();
     await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("UI intervention checkpoint").waitFor();
     log("intervention", "saved an intervention through the UI");
 
@@ -253,6 +292,7 @@ async function main() {
     assert.ok(snapshot.measurementPromotions.some((promotion) => promotion.canonicalCode === "apob"));
     assert.ok(snapshot.reportIngestions.some((ingestion) => ingestion.vendor === "Hurdle"));
     assert.ok(snapshot.patient.timeline.some((event) => event.title === "UI intervention checkpoint"));
+    assert.deepEqual([...visitedWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
     log("verification", "page interactions and persisted state matched");
   } finally {
     await browser?.close();

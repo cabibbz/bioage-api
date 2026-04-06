@@ -62,6 +62,7 @@ This runs:
 - SQL seed export
 - committed file-backed functional coverage across route validation, report intake, intervention intake, review, promotion, and every document/parser classification
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
+- a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
