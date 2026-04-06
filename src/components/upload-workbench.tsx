@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const demoPayload = {
@@ -21,6 +21,10 @@ export function UploadWorkbench() {
   const [payloadText, setPayloadText] = useState(JSON.stringify(demoPayload.entries, null, 2));
   const [result, setResult] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setResult("");
+  }, [payloadText, vendor]);
 
   async function handleSubmit() {
     try {

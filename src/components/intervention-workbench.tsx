@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const demoIntervention = {
@@ -17,6 +17,10 @@ export function InterventionWorkbench() {
   const [occurredAt, setOccurredAt] = useState("2026-04-04");
   const [result, setResult] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setResult("");
+  }, [detail, occurredAt, title]);
 
   async function handleSubmit() {
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type SelectedFileState = {
@@ -22,6 +22,10 @@ export function DocumentUploadWorkbench() {
     () => ".pdf,.png,.jpg,.jpeg,.json,.zip,.xml,.html,.htm,.csv,.xls,.xlsx,.txt",
     [],
   );
+
+  useEffect(() => {
+    setResult("");
+  }, [selectedFile?.preview, sourceSystem]);
 
   async function handleSubmit() {
     if (!selectedFile) {

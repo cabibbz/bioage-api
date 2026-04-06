@@ -831,6 +831,10 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, documentErrorSnapshot, discoveredWorkbenchHeadings);
     log("document", "rejected a blank source system locally without mutating persisted state");
 
+    await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);
+    await documentSection.locator("pre").filter({ hasText: "Document intake output will appear here." }).waitFor();
+    log("document", "cleared stale result output when editing document intake inputs");
+
     await documentSection.getByRole("button", { name: "Reset", exact: true }).click();
     assert.equal(
       await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").inputValue(),
@@ -1154,26 +1158,28 @@ async function main() {
       await promotionSelect.selectOption({ value: decision.id });
       await waitForPromotionSnapshot(promotionSection, decision);
       await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
-      await promotionSection
-        .locator("pre")
-        .filter({ hasText: `"reviewDecisionId": "${decision.id}"` })
-        .waitFor();
-      if (index === 0) {
-        const afterFirstPromotion = await loadPersistedSnapshot();
-        const remainingPendingDecisions = pendingPromotionDecisions(afterFirstPromotion);
-        assert.ok(remainingPendingDecisions.length > 0, "Promotion retarget coverage requires remaining pending decisions.");
+      if (index < acceptedReviewTargets.length - 1) {
         const remainingPromotionOptionValues = await waitForSelectOptionValueToDisappear(promotionSelect, decision.id);
-        assert.equal(
-          await promotionSelect.inputValue(),
-          remainingPromotionOptionValues[0],
-          "Promotion workbench should retarget to the first remaining pending decision.",
-        );
-        const autoSelectedDecision = remainingPendingDecisions.find(
-          (entry) => entry.id === remainingPromotionOptionValues[0],
-        );
-        assert.ok(autoSelectedDecision, "Auto-selected promotion decision should resolve from persisted state.");
-        await waitForPromotionSnapshot(promotionSection, autoSelectedDecision);
-        log("promotion", "retargeted the promotion workbench to the next pending decision after removing the current one");
+        if (index === 0) {
+          const afterFirstPromotion = await loadPersistedSnapshot();
+          const remainingPendingDecisions = pendingPromotionDecisions(afterFirstPromotion);
+          assert.ok(remainingPendingDecisions.length > 0, "Promotion retarget coverage requires remaining pending decisions.");
+          assert.equal(
+            await promotionSelect.inputValue(),
+            remainingPromotionOptionValues[0],
+            "Promotion workbench should retarget to the first remaining pending decision.",
+          );
+          const autoSelectedDecision = remainingPendingDecisions.find(
+            (entry) => entry.id === remainingPromotionOptionValues[0],
+          );
+          assert.ok(autoSelectedDecision, "Auto-selected promotion decision should resolve from persisted state.");
+          await waitForPromotionSnapshot(promotionSection, autoSelectedDecision);
+          log("promotion", "retargeted the promotion workbench to the next pending decision after removing the current one");
+        }
+      } else {
+        await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
+      }
+      if (index === 0) {
       }
       await refreshDashboard(page);
       await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
@@ -1297,13 +1303,9 @@ async function main() {
     const promotionCountBeforeReopenedPromotion = afterReviewUpdate.measurementPromotions.length;
     await promotionSelect.selectOption({ value: updatedReviewDecision.id });
     await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
-    await promotionSection
-      .locator("pre")
-      .filter({ hasText: `"reviewDecisionId": "${updatedReviewDecision.id}"` })
-      .waitFor();
+    await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
     await refreshDashboard(page);
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
-    await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
     const afterReviewUpdatePromotion = await loadPersistedSnapshot();
     assert.equal(afterReviewUpdatePromotion.reviewDecisions.length, reviewDecisionCountBeforeUpdate);
     assert.equal(afterReviewUpdatePromotion.measurementPromotions.length, promotionCountBeforeReopenedPromotion + 1);
@@ -1367,6 +1369,10 @@ async function main() {
     await reportSection.locator("pre").filter({ hasText: '"error": "Entries JSON must be an array."' }).waitFor();
     await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
     log("report", "rejected a non-array entries payload locally without mutating persisted state");
+
+    await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('[{"name":"Edited value","value":1}]');
+    await reportSection.locator("pre").filter({ hasText: "Normalization output will appear here." }).waitFor();
+    log("report", "cleared stale result output when editing report intake inputs");
 
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Quest panel via Terra parser");
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('[{"name":"Temporary value","value":1}]');
@@ -1432,6 +1438,14 @@ async function main() {
     await interventionSection.locator("pre").filter({ hasText: '"error": "Detail is required."' }).waitFor();
     await assertUiStateUnchangedAfterError(page, sections, interventionDetailErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected a blank intervention detail locally without mutating persisted state");
+
+    await interventionSection
+      .locator("label")
+      .filter({ hasText: "Detail" })
+      .locator("textarea")
+      .fill("Edited intervention detail");
+    await interventionSection.locator("pre").filter({ hasText: "Intervention save output will appear here." }).waitFor();
+    log("intervention", "cleared stale result output when editing intervention inputs");
 
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("Temporary intervention title");
     await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").fill("2026-03-20");

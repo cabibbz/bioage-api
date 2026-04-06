@@ -44,6 +44,7 @@
 - expanded browser selection coverage so review and promotion must update their visible snapshot cards when the selected candidate or decision changes
 - expanded browser transition coverage so review and promotion must retarget to a valid remaining record when the currently selected one disappears after promotion
 - cleared stale review/promotion result payloads on selection change so a newly selected record never shows the previous action response, and added browser coverage for that behavior
+- cleared stale document/report/intervention result payloads on input change so edited forms never show the previous response, and added browser coverage for that behavior
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario
