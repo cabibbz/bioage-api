@@ -1362,6 +1362,56 @@ const scenarios = [
     },
   },
   {
+    name: "review-decision-rejects-updates-after-promotion",
+    covers: ["POST /api/review/decision"],
+    coverageType: "error",
+    async run() {
+      const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
+      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
+      assert.ok(target);
+
+      const review = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: target.task.id,
+        candidateId: target.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        note: "Accepting before promotion immutability check.",
+        proposedCanonicalCode: "apob",
+      });
+
+      await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: review.decision.id,
+      });
+
+      const beforeBlockedUpdate = await getPatientSnapshot();
+      const blockedUpdate = await postJson(
+        "/api/review/decision",
+        {
+          patientId,
+          parseTaskId: target.task.id,
+          candidateId: target.candidate.id,
+          action: "reject",
+          reviewerName: "Functional reviewer",
+          note: "This update should be rejected after promotion.",
+        },
+        400,
+      );
+      const afterBlockedUpdate = await getPatientSnapshot();
+
+      assert.equal(
+        blockedUpdate.error,
+        `Review decision ${review.decision.id} was already promoted and cannot be changed.`,
+      );
+      assert.deepEqual(
+        afterBlockedUpdate,
+        beforeBlockedUpdate,
+        "Promoted review decisions should remain unchanged when an update is attempted.",
+      );
+    },
+  },
+  {
     name: "promotion-validation-and-idempotence",
     covers: ["POST /api/review/promote"],
     coverageType: "mixed",

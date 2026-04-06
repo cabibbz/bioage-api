@@ -77,6 +77,7 @@ This runs:
 - the browser suite now also saves `reject` and `follow_up` review decisions through the UI and verifies the promotion workbench returns to the empty pending state once all accepted decisions are consumed
 - the browser suite now also revisits the review workbench after promotion overflow so non-accept actions are exercised after the accepted queue has been drained
 - the browser suite now also updates an existing rejected decision back to `accept`, verifies the same review record is updated in place, confirms the pending promotion queue repopulates, and then promotes it without duplicating review decisions
+- promoted review decisions are now immutable: both suites verify that once a decision has been promoted, later review-save attempts fail with `400` and the persisted state remains unchanged
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 

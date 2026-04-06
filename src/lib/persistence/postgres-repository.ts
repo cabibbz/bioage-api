@@ -989,6 +989,18 @@ export const postgresEvidenceRepository: EvidenceRepository = {
         [input.patientId, input.parseTaskId, input.candidateId],
       );
 
+      if (existingDecision) {
+        const existingPromotion = await findMeasurementPromotionByDecision(
+          client,
+          input.patientId,
+          readText(existingDecision, "id"),
+        );
+
+        if (existingPromotion) {
+          throw new Error(`Review decision ${existingPromotion.reviewDecisionId} was already promoted and cannot be changed.`);
+        }
+      }
+
       const now = new Date().toISOString();
       const decision: StoredReviewDecision = {
         id: existingDecision ? readText(existingDecision, "id") : randomUUID(),

@@ -240,9 +240,21 @@ export async function persistReviewDecision(input: {
       decision.parseTaskId === input.parseTaskId &&
       decision.candidateId === input.candidateId,
   );
+  const existingDecision =
+    existingDecisionIndex >= 0 ? store.reviewDecisions[existingDecisionIndex] : undefined;
+
+  if (existingDecision) {
+    const existingPromotion = store.measurementPromotions.find(
+      (promotion) => promotion.patientId === input.patientId && promotion.reviewDecisionId === existingDecision.id,
+    );
+
+    if (existingPromotion) {
+      throw new Error(`Review decision ${existingDecision.id} was already promoted and cannot be changed.`);
+    }
+  }
 
   const decision: StoredReviewDecision = {
-    id: existingDecisionIndex >= 0 ? store.reviewDecisions[existingDecisionIndex].id : randomUUID(),
+    id: existingDecision?.id ?? randomUUID(),
     patientId: input.patientId,
     parseTaskId: input.parseTaskId,
     sourceDocumentId: parseTask.sourceDocumentId,
@@ -256,7 +268,7 @@ export async function persistReviewDecision(input: {
     proposedCanonicalCode: canonicalMatch?.canonicalCode,
     proposedTitle: canonicalMatch?.title,
     proposedModality: canonicalMatch?.modality,
-    createdAt: existingDecisionIndex >= 0 ? store.reviewDecisions[existingDecisionIndex].createdAt : now,
+    createdAt: existingDecision?.createdAt ?? now,
     updatedAt: now,
   };
 

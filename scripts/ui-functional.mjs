@@ -974,6 +974,26 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
     log("promotion", "promoted the reopened decision and verified the queue emptied again without duplicating review records");
 
+    const promotedDecisionUpdateSnapshot = await loadPersistedSnapshot();
+    await waitForSelectOptionValue(parseTaskSelect, resolvedUpdateTarget.task.id);
+    await parseTaskSelect.selectOption({ value: resolvedUpdateTarget.task.id });
+    await waitForSelectOptionValue(candidateSelect, resolvedUpdateTarget.candidate.id);
+    await candidateSelect.selectOption({ value: resolvedUpdateTarget.candidate.id });
+    await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("reject");
+    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician blocked update");
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Note" })
+      .locator("textarea")
+      .fill("Attempting to change a promoted decision should be rejected without mutating state.");
+    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await reviewSection
+      .locator("pre")
+      .filter({ hasText: `"error": "Review decision ${updatedReviewDecision.id} was already promoted and cannot be changed."` })
+      .waitFor();
+    await assertUiStateUnchangedAfterError(page, sections, promotedDecisionUpdateSnapshot, discoveredWorkbenchHeadings);
+    log("review", "rejected an attempted update to a promoted review decision without mutating persisted state");
+
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();

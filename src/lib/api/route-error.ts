@@ -8,6 +8,7 @@ function classifyStatus(message: string) {
   if (
     message.includes("is not in the catalog") ||
     message.includes("cannot be promoted") ||
+    message.includes("cannot be changed") ||
     message.includes("does not include a proposed canonical mapping") ||
     message.includes("does not have a numeric value")
   ) {
