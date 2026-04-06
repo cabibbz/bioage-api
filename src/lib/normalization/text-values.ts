@@ -183,7 +183,7 @@ function resolveContextualQualitativeValue(qualitativeKey: string) {
   const contextualPatterns = [
     {
       pattern:
-        /^(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)(?:\s*[:=/-]\s*|\s*[,;]\s*|\s+)(?:repeat\s+screen|screening\s+assay(?:\s+result)?|qualitative\s+assay(?:\s+result)?|screening\s+result|qualitative\s+result|result\s+status|screen|screening|qualitative|assay(?:\s+result)?|result)$/,
+        /^(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)(?:\s*(?::|=|\/|\||-)\s*|\s*[,;]\s*|\s+)(?:repeat\s+screen|screening\s+assay(?:\s+result)?|qualitative\s+assay(?:\s+result)?|screening\s+result|qualitative\s+result|result\s+status|screen|screening|qualitative|assay(?:\s+result)?|result)$/,
       baseGroup: 1,
     },
     {
@@ -198,7 +198,7 @@ function resolveContextualQualitativeValue(qualitativeKey: string) {
     },
     {
       pattern:
-        /^(?:repeat\s+)?(?:screen|screening|qualitative|assay|screening assay|qualitative assay|screening result|qualitative result|result|result status)(?:\s*[:=/-]\s*|\s*[,;]\s*|\s+)(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)$/,
+        /^(?:repeat\s+)?(?:screen|screening|qualitative|assay|screening assay|qualitative assay|screening result|qualitative result|result|result status)(?:\s*(?::|=|\/|\||-)\s*|\s*[,;]\s*|\s+)(positive|pos|negative|neg|detected|not[\s-]*detected|none detected|undetected|reactive|non[\s-]*reactive)$/,
       baseGroup: 1,
     },
     {
