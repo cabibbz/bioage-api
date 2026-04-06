@@ -23,9 +23,6 @@ export function UploadWorkbench() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit() {
-    setIsSubmitting(true);
-    setResult("");
-
     try {
       let parsedEntries: unknown;
 
@@ -35,6 +32,14 @@ export function UploadWorkbench() {
         setResult(JSON.stringify({ error: "Entries JSON must be valid JSON." }, null, 2));
         return;
       }
+
+      if (!Array.isArray(parsedEntries)) {
+        setResult(JSON.stringify({ error: "Entries JSON must be an array." }, null, 2));
+        return;
+      }
+
+      setIsSubmitting(true);
+      setResult("");
 
       const response = await fetch("/api/intake/report", {
         method: "POST",

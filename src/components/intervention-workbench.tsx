@@ -19,10 +19,19 @@ export function InterventionWorkbench() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit() {
-    setIsSubmitting(true);
-    setResult("");
-
     try {
+      const normalizedTitle = title.trim();
+      if (!normalizedTitle) {
+        setResult(JSON.stringify({ error: "Title is required." }, null, 2));
+        return;
+      }
+
+      const normalizedDetail = detail.trim();
+      if (!normalizedDetail) {
+        setResult(JSON.stringify({ error: "Detail is required." }, null, 2));
+        return;
+      }
+
       if (!occurredAt) {
         setResult(JSON.stringify({ error: "Choose a valid date first." }, null, 2));
         return;
@@ -34,6 +43,9 @@ export function InterventionWorkbench() {
         return;
       }
 
+      setIsSubmitting(true);
+      setResult("");
+
       const response = await fetch("/api/intake/intervention", {
         method: "POST",
         headers: {
@@ -41,8 +53,8 @@ export function InterventionWorkbench() {
         },
         body: JSON.stringify({
           patientId: demoIntervention.patientId,
-          title,
-          detail,
+          title: normalizedTitle,
+          detail: normalizedDetail,
           occurredAt: occurredAtDate.toISOString(),
         }),
       });

@@ -1204,9 +1204,9 @@ async function main() {
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
-    await reportSection.locator("pre").filter({ hasText: '"error": "entries must be an array."' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"error": "Entries JSON must be an array."' }).waitFor();
     await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
-    log("report", "rejected invalid entries payload without mutating persisted state");
+    log("report", "rejected a non-array entries payload locally without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
@@ -1230,20 +1230,24 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, interventionDateErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected a blank intervention date locally without mutating persisted state");
 
-    const interventionErrorSnapshot = await loadPersistedSnapshot();
+    const interventionTitleErrorSnapshot = await loadPersistedSnapshot();
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("   ");
+    await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
+    await interventionSection.locator("pre").filter({ hasText: '"error": "Title is required."' }).waitFor();
+    await assertUiStateUnchangedAfterError(page, sections, interventionTitleErrorSnapshot, discoveredWorkbenchHeadings);
+    log("intervention", "rejected a blank intervention title locally without mutating persisted state");
+
+    const interventionDetailErrorSnapshot = await loadPersistedSnapshot();
+    await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI intervention checkpoint");
     await interventionSection
       .locator("label")
       .filter({ hasText: "Detail" })
       .locator("textarea")
       .fill("   ");
     await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
-    await interventionSection
-      .locator("pre")
-      .filter({ hasText: '"error": "patientId, title, detail, and occurredAt are required."' })
-      .waitFor();
-    await assertUiStateUnchangedAfterError(page, sections, interventionErrorSnapshot, discoveredWorkbenchHeadings);
-    log("intervention", "rejected blank intervention fields without mutating persisted state");
+    await interventionSection.locator("pre").filter({ hasText: '"error": "Detail is required."' }).waitFor();
+    await assertUiStateUnchangedAfterError(page, sections, interventionDetailErrorSnapshot, discoveredWorkbenchHeadings);
+    log("intervention", "rejected a blank intervention detail locally without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Tag a protocol change");
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("UI intervention checkpoint");
