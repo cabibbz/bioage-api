@@ -221,6 +221,43 @@ async function waitForReviewMappingState(section, expectedValue, expectedDisable
   );
 }
 
+async function waitForReviewCandidateSnapshot(section, candidate) {
+  const snapshotCard = section.locator(".detail-card").filter({ hasText: "Candidate snapshot" }).first();
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const copy = normalizeWhitespace((await snapshotCard.locator(".detail-copy").textContent()) ?? "");
+    const sourcePath = normalizeWhitespace((await snapshotCard.locator(".summary-note").textContent()) ?? "");
+
+    if (copy === `${candidate.displayName} | ${candidate.valueLabel}` && sourcePath === candidate.sourcePath) {
+      return;
+    }
+
+    await section.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for review candidate snapshot for ${candidate.displayName}.`);
+}
+
+async function waitForPromotionSnapshot(section, decision) {
+  const snapshotCard = section.locator(".detail-card").filter({ hasText: "Promotion snapshot" }).first();
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const copy = normalizeWhitespace((await snapshotCard.locator(".detail-copy").textContent()) ?? "");
+    const summary = normalizeWhitespace((await snapshotCard.locator(".summary-note").textContent()) ?? "");
+
+    if (
+      copy === `${decision.candidateDisplayName} | ${decision.candidateValueLabel}` &&
+      summary === `Proposed mapping: ${decision.proposedTitle} | ${decision.proposedCanonicalCode}`
+    ) {
+      return;
+    }
+
+    await section.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for promotion snapshot for ${decision.candidateDisplayName}.`);
+}
+
 function countFlaggedSignals(snapshot) {
   return snapshot.patient.measurements.filter(
     (measurement) => measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch",
@@ -919,6 +956,7 @@ async function main() {
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
     await waitForSelectOptionValue(candidateSelect, errorReviewTarget.candidate.id);
     await candidateSelect.selectOption({ value: errorReviewTarget.candidate.id });
+    await waitForReviewCandidateSnapshot(reviewSection, errorReviewTarget.candidate);
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("   ");
     await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
     await reviewSection
@@ -941,6 +979,7 @@ async function main() {
     await parseTaskSelect.selectOption({ value: nonNumericReviewTarget.task.id });
     await waitForSelectOptionValue(candidateSelect, nonNumericReviewTarget.candidate.id);
     await candidateSelect.selectOption({ value: nonNumericReviewTarget.candidate.id });
+    await waitForReviewCandidateSnapshot(reviewSection, nonNumericReviewTarget.candidate);
     await reviewSection
       .locator("label")
       .filter({ hasText: "Reviewer" })
@@ -998,6 +1037,7 @@ async function main() {
       await parseTaskSelect.selectOption({ value: resolvedTarget.task.id });
       await waitForSelectOptionValue(candidateSelect, resolvedTarget.candidate.id);
       await candidateSelect.selectOption({ value: resolvedTarget.candidate.id });
+      await waitForReviewCandidateSnapshot(reviewSection, resolvedTarget.candidate);
       await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill(target.reviewerName);
       await reviewSection
         .locator("label")
@@ -1032,6 +1072,7 @@ async function main() {
     );
     await waitForSelectOptionValue(promotionSelect, promotionErrorDecision.id);
     await promotionSelect.selectOption({ value: promotionErrorDecision.id });
+    await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
     await page.route(
       "**/api/review/promote",
       async (route) => {
@@ -1056,9 +1097,15 @@ async function main() {
     const promotionOptionValues = await readSelectOptionValues(promotionSelect);
     assert.ok(promotionOptionValues.length > 1, "Promotion reset coverage requires multiple pending decisions.");
     const nonDefaultPromotionDecisionId = promotionOptionValues[promotionOptionValues.length - 1];
+    const nonDefaultPromotionDecision = acceptedReviewTargets
+      .map((target) => resolveReviewDecision(promotionErrorSnapshot, target.sourceFilename, target.candidateDisplayName))
+      .find((decision) => decision.id === nonDefaultPromotionDecisionId);
+    assert.ok(nonDefaultPromotionDecision, "Expected reset coverage decision to resolve from persisted state.");
     await promotionSelect.selectOption({ value: nonDefaultPromotionDecisionId });
+    await waitForPromotionSnapshot(promotionSection, nonDefaultPromotionDecision);
     await promotionSection.getByRole("button", { name: "Reset demo", exact: true }).click();
     assert.equal(await promotionSelect.inputValue(), promotionOptionValues[0]);
+    await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
     await promotionSection.locator("pre").filter({ hasText: "Promotion output will appear here." }).waitFor();
     await assertDashboardMatchesSnapshot(sections, promotionErrorSnapshot);
     log("promotion", "reset the promotion workbench back to the first pending decision and cleared local result state");
@@ -1073,6 +1120,7 @@ async function main() {
       );
       await waitForSelectOptionValue(promotionSelect, decision.id);
       await promotionSelect.selectOption({ value: decision.id });
+      await waitForPromotionSnapshot(promotionSection, decision);
       await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
       await promotionSection
         .locator("pre")
