@@ -135,6 +135,61 @@ async function waitForSelectOptionContaining(selectLocator, text) {
   throw new Error(`Timed out waiting for select option containing "${text}".`);
 }
 
+function countFlaggedSignals(snapshot) {
+  return snapshot.patient.measurements.filter(
+    (measurement) => measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch",
+  ).length;
+}
+
+function countImprovingSignals(snapshot) {
+  return snapshot.patient.measurements.filter((measurement) => measurement.evidenceStatus === "improving").length;
+}
+
+async function fetchPatientSnapshot(page) {
+  const patientResponse = await page.context().request.get(`${baseUrl}/api/patients/${patientId}`);
+  assert.equal(patientResponse.ok(), true);
+  return patientResponse.json();
+}
+
+async function expectSectionHeadPill(section, text) {
+  await section.locator(".section-head .pill").first().waitFor();
+  assert.equal((await section.locator(".section-head .pill").first().textContent())?.trim(), text);
+}
+
+async function expectDetailCardValue(section, label, value) {
+  const card = section.locator(".detail-card").filter({ hasText: label }).first();
+  await card.waitFor();
+  assert.equal((await card.locator(".summary-value").first().textContent())?.trim(), value);
+}
+
+async function assertDashboardMatchesSnapshot(sections, snapshot) {
+  await expectSectionHeadPill(sections.sourceDocumentsSection, `${snapshot.sourceDocuments.length} stored`);
+  await expectSectionHeadPill(sections.parseTasksSection, `${snapshot.parseTasks.length} tasks`);
+  await expectSectionHeadPill(sections.timelineSection, `${snapshot.patient.timeline.length} tracked events`);
+  await expectSectionHeadPill(sections.reviewSection, `${snapshot.reviewDecisions.length} decisions`);
+  await expectSectionHeadPill(sections.promotionSection, `${snapshot.measurementPromotions.length} promotions`);
+  await expectSectionHeadPill(sections.flaggedSignalsSection, `${countFlaggedSignals(snapshot)} flagged`);
+  await sections.clinicianPrepSection.getByText(snapshot.patient.focus, { exact: true }).waitFor();
+  await expectDetailCardValue(
+    sections.clinicianPrepSection,
+    "Improving signals",
+    String(countImprovingSignals(snapshot)),
+  );
+  await expectDetailCardValue(
+    sections.clinicianPrepSection,
+    "Conflicts to review",
+    String(
+      snapshot.patient.measurements.filter((measurement) => measurement.evidenceStatus === "conflicted").length,
+    ),
+  );
+
+  const renderedSignalTitles = (await sections.signalBoardSection.locator(".signal-card .signal-title").allTextContents()).map(
+    (title) => title.trim(),
+  );
+  const expectedSignalTitles = snapshot.patient.measurements.slice(0, 3).map((measurement) => measurement.title);
+  assert.deepEqual(renderedSignalTitles, expectedSignalTitles);
+}
+
 async function discoverInteractiveWorkbenchHeadings(page) {
   const headings = await page.locator("section").evaluateAll((sections) =>
     sections
@@ -248,11 +303,23 @@ async function main() {
     const timelineSection = sectionByHeading(page, "Interventions and evidence windows");
     const signalBoardSection = sectionByHeading(page, "Modality-aware evidence cards");
     const clinicianPrepSection = sectionByHeading(page, "Clinician prep");
+    const flaggedSignalsSection = sectionByHeading(page, "Signals needing clinician review");
     const documentSection = sectionByHeading(page, "Upload a source file");
     const reviewSection = sectionByHeading(page, "Adjudicate parser candidates");
     const promotionSection = sectionByHeading(page, "Promote accepted decisions");
     const reportSection = sectionByHeading(page, "Report intake and normalization");
     const interventionSection = sectionByHeading(page, "Tag a protocol change");
+
+    const sections = {
+      sourceDocumentsSection,
+      parseTasksSection,
+      timelineSection,
+      signalBoardSection,
+      clinicianPrepSection,
+      flaggedSignalsSection,
+      reviewSection,
+      promotionSection,
+    };
 
     await clinicianPrepSection
       .getByText("Longevity follow-up after sleep, resistance training, and omega-3 protocol.", { exact: true })
@@ -260,6 +327,7 @@ async function main() {
     await signalBoardSection.getByText("Epigenetic Biological Age", { exact: true }).waitFor();
     coveredDashboardHeadings.add("Modality-aware evidence cards");
     coveredDashboardHeadings.add("Clinician prep");
+    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
 
     const documentFilename = "ui-functional.csv";
     visitedWorkbenchHeadings.add("Upload a source file");
@@ -278,6 +346,7 @@ async function main() {
     await parseTasksSection.getByText("csv_table", { exact: true }).waitFor();
     coveredDashboardHeadings.add("Stored source documents");
     coveredDashboardHeadings.add("Document parse tasks");
+    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
     log("document", "uploaded CSV through the UI and observed parser task on the page");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
@@ -297,6 +366,7 @@ async function main() {
     await reviewSection.getByText("UI clinician").waitFor();
     await parseTasksSection.getByText("1 reviewed").waitFor();
     coveredDashboardHeadings.add("Document parse tasks");
+    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
     log("review", "accepted and mapped a parser candidate through the UI");
 
     const promotionSelect = promotionSection.locator("select").first();
@@ -308,9 +378,9 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await promotionSection.getByText("ApoB", { exact: true }).waitFor();
     await timelineSection.getByText("ApoB promoted into canonical record").waitFor();
-    await signalBoardSection.getByText("ApoB", { exact: true }).waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
     coveredDashboardHeadings.add("Modality-aware evidence cards");
+    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
     log("promotion", "promoted the accepted review decision through the UI");
 
     visitedWorkbenchHeadings.add("Report intake and normalization");
@@ -321,6 +391,7 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("Hurdle report normalized").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
+    await assertDashboardMatchesSnapshot(sections, await fetchPatientSnapshot(page));
     log("report", "ran report normalization through the UI");
 
     visitedWorkbenchHeadings.add("Tag a protocol change");
@@ -334,11 +405,10 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("UI intervention checkpoint").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
+    const snapshot = await fetchPatientSnapshot(page);
+    await assertDashboardMatchesSnapshot(sections, snapshot);
     log("intervention", "saved an intervention through the UI");
 
-    const patientResponse = await page.context().request.get(`${baseUrl}/api/patients/${patientId}`);
-    assert.equal(patientResponse.ok(), true);
-    const snapshot = await patientResponse.json();
     assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === documentFilename));
     assert.ok(snapshot.reviewDecisions.some((decision) => decision.reviewerName === "UI clinician"));
     assert.ok(snapshot.measurementPromotions.some((promotion) => promotion.canonicalCode === "apob"));

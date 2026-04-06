@@ -65,6 +65,7 @@ This runs:
 - committed file-backed browser coverage across document upload, review, promotion, report normalization, and intervention workbenches on `/`
 - a UI inventory guard that fails if `/` gains a new interactive workbench without an exercised browser path
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
+- live browser assertions that compare dashboard counters and signal-board titles against the patient API snapshot after each workflow step
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
