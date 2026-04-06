@@ -95,6 +95,7 @@ export function InterventionWorkbench() {
         <label className="field">
           <span className="detail-label">Title</span>
           <input
+            disabled={isSubmitting}
             value={title}
             onChange={(event) => {
               setTitle(event.target.value);
@@ -106,6 +107,7 @@ export function InterventionWorkbench() {
         <label className="field">
           <span className="detail-label">Date</span>
           <input
+            disabled={isSubmitting}
             type="date"
             value={occurredAt}
             onChange={(event) => {
@@ -119,6 +121,7 @@ export function InterventionWorkbench() {
       <label className="field" style={{ marginTop: 16 }}>
         <span className="detail-label">Detail</span>
         <textarea
+          disabled={isSubmitting}
           value={detail}
           onChange={(event) => {
             setDetail(event.target.value);
@@ -131,7 +134,7 @@ export function InterventionWorkbench() {
         <button className="button button-primary" disabled={isSubmitting} onClick={handleSubmit} type="button">
           {isSubmitting ? "Saving..." : "Save intervention"}
         </button>
-        <button className="button button-secondary" onClick={resetDemo} type="button">
+        <button className="button button-secondary" disabled={isSubmitting} onClick={resetDemo} type="button">
           Reset demo
         </button>
       </div>

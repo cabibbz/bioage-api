@@ -76,6 +76,7 @@ This runs:
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
 - live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
 - invalid-action browser paths now also prove the current draft form or selected record survives the error before any refresh occurs
+- the workbenches now freeze editable controls during in-flight requests, and the browser suite verifies that lock before each delayed backend-error response is released
 - the document workbench now returns stable client-side errors for missing-file and blank source-system input, the review workbench does the same for blank reviewer input, and the browser suite verifies those local guards
 - the document workbench reset path now restores the default source-system and clears the actual file input, and the browser suite verifies that reset behavior before continuing the upload flow
 - the browser suite now verifies reset behavior across every workbench: document clears the real file input, review restores the current candidate state, promotion restores the first pending decision, and report/intervention restore their demo form state while clearing local result output

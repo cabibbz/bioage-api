@@ -233,6 +233,99 @@ async function assertInterventionDraftState(section, expected) {
   await waitForInputValue(detailArea, expected.detail);
 }
 
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function waitForDisabledState(locator, expectedDisabled) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await locator.isDisabled()) === expectedDisabled) {
+      return;
+    }
+
+    await locator.page().waitForTimeout(100);
+  }
+
+  throw new Error(`Timed out waiting for disabled state ${String(expectedDisabled)}.`);
+}
+
+async function waitForButtonText(buttonLocator, expectedText) {
+  let lastText = "";
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const actualText = normalizeWhitespace((await buttonLocator.textContent()) ?? "");
+    lastText = actualText;
+    if (actualText === expectedText) {
+      return;
+    }
+
+    await buttonLocator.page().waitForTimeout(100);
+  }
+
+  throw new Error(
+    `Timed out waiting for button text ${JSON.stringify(expectedText)}; last text was ${JSON.stringify(lastText)}.`,
+  );
+}
+
+async function assertDocumentSubmittingState(section) {
+  const submitButton = section.locator(".actions .button-primary");
+  const resetButton = section.locator(".actions .button-secondary");
+  await waitForButtonText(submitButton, "Uploading...");
+  await waitForDisabledState(submitButton, true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Source system/ }).locator("input"), true);
+  await waitForDisabledState(section.locator('input[type="file"]'), true);
+  await waitForDisabledState(resetButton, true);
+}
+
+async function assertReviewSubmittingState(section) {
+  const submitButton = section.locator(".actions .button-primary");
+  const resetButton = section.locator(".actions .button-secondary");
+  await waitForButtonText(submitButton, "Saving...");
+  await waitForDisabledState(submitButton, true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Parse task/ }).locator("select"), true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Candidate/ }).locator("select"), true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Action/ }).locator("select"), true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Reviewer/ }).locator("input"), true);
+  await waitForDisabledState(
+    section.locator("label").filter({ hasText: /^Proposed canonical mapping/ }).locator("select"),
+    true,
+  );
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Note/ }).locator("textarea"), true);
+  await waitForDisabledState(resetButton, true);
+}
+
+async function assertPromotionSubmittingState(section) {
+  const submitButton = section.locator(".actions .button-primary");
+  const resetButton = section.locator(".actions .button-secondary");
+  await waitForButtonText(submitButton, "Promoting...");
+  await waitForDisabledState(submitButton, true);
+  await waitForDisabledState(
+    section.locator("label").filter({ hasText: /^Accepted review decision/ }).locator("select"),
+    true,
+  );
+  await waitForDisabledState(resetButton, true);
+}
+
+async function assertReportSubmittingState(section) {
+  const submitButton = section.locator(".actions .button-primary");
+  const resetButton = section.locator(".actions .button-secondary");
+  await waitForButtonText(submitButton, "Normalizing...");
+  await waitForDisabledState(submitButton, true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Vendor/ }).locator("select"), true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Entries JSON/ }).locator("textarea"), true);
+  await waitForDisabledState(resetButton, true);
+}
+
+async function assertInterventionSubmittingState(section) {
+  const submitButton = section.locator(".actions .button-primary");
+  const resetButton = section.locator(".actions .button-secondary");
+  await waitForButtonText(submitButton, "Saving...");
+  await waitForDisabledState(submitButton, true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Title/ }).locator("input"), true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Date/ }).locator("input"), true);
+  await waitForDisabledState(section.locator("label").filter({ hasText: /^Detail/ }).locator("textarea"), true);
+  await waitForDisabledState(resetButton, true);
+}
+
 async function waitForReviewMappingState(section, expectedValue, expectedDisabled) {
   const mappingSelect = section.locator("label").filter({ hasText: "Proposed canonical mapping" }).locator("select");
 
@@ -942,6 +1035,7 @@ async function main() {
     await page.route(
       "**/api/intake/document",
       async (route) => {
+        await sleep(1000);
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -952,7 +1046,11 @@ async function main() {
       },
       { times: 1 },
     );
-    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    const documentBackendErrorSubmit = documentSection
+      .getByRole("button", { name: "Store source document", exact: true })
+      .click();
+    await assertDocumentSubmittingState(documentSection);
+    await documentBackendErrorSubmit;
     await documentSection
       .locator("pre")
       .filter({ hasText: '"error": "Document intake backend unavailable."' })
@@ -968,7 +1066,10 @@ async function main() {
       documentBackendErrorSnapshot,
       discoveredWorkbenchHeadings,
     );
-    log("document", "surfaced a backend document error without mutating persisted state or dropping the current draft");
+    log(
+      "document",
+      "froze document controls during an in-flight request, then surfaced a backend error without mutating persisted state or dropping the current draft",
+    );
 
     const missingFileDocumentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
@@ -1151,6 +1252,7 @@ async function main() {
     await page.route(
       "**/api/review/decision",
       async (route) => {
+        await sleep(1000);
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -1161,7 +1263,9 @@ async function main() {
       },
       { times: 1 },
     );
-    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    const reviewBackendErrorSubmit = reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await assertReviewSubmittingState(reviewSection);
+    await reviewBackendErrorSubmit;
     await reviewSection.locator("pre").filter({ hasText: '"error": "Review backend unavailable."' }).waitFor();
     await assertReviewFormState(reviewSection, {
       action: "accept",
@@ -1174,7 +1278,10 @@ async function main() {
     await waitForInputValue(candidateSelect, errorReviewTarget.candidate.id);
     backendErrorWorkbenchHeadings.add("Adjudicate parser candidates");
     await assertUiStateUnchangedAfterError(page, sections, reviewBackendErrorSnapshot, discoveredWorkbenchHeadings);
-    log("review", "surfaced a backend review error without mutating persisted state or dropping the current draft");
+    log(
+      "review",
+      "froze review controls during an in-flight save, then surfaced a backend error without mutating persisted state or dropping the current draft",
+    );
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
     const snapshotBeforeTextReview = await loadPersistedSnapshot();
@@ -1292,6 +1399,7 @@ async function main() {
     await page.route(
       "**/api/review/promote",
       async (route) => {
+        await sleep(1000);
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -1302,7 +1410,11 @@ async function main() {
       },
       { times: 1 },
     );
-    await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
+    const promotionBackendErrorSubmit = promotionSection
+      .getByRole("button", { name: "Promote measurement", exact: true })
+      .click();
+    await assertPromotionSubmittingState(promotionSection);
+    await promotionBackendErrorSubmit;
     await promotionSection.locator("pre").filter({ hasText: '"error": "Promotion backend unavailable."' }).waitFor();
     await assertPromotionSelectionState(promotionSection, promotionErrorDecision.id);
     await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
@@ -1313,7 +1425,10 @@ async function main() {
       promotionBackendErrorSnapshot,
       discoveredWorkbenchHeadings,
     );
-    log("promotion", "surfaced a backend promotion error without mutating persisted state or dropping the current selection");
+    log(
+      "promotion",
+      "froze promotion controls during an in-flight request, then surfaced a backend error without mutating persisted state or dropping the current selection",
+    );
 
     const promotionErrorSnapshot = await loadPersistedSnapshot();
     const promotionValidationErrorDecision = resolveReviewDecisionBySelection(
@@ -1581,6 +1696,7 @@ async function main() {
     await page.route(
       "**/api/intake/report",
       async (route) => {
+        await sleep(1000);
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -1591,7 +1707,9 @@ async function main() {
       },
       { times: 1 },
     );
-    await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
+    const reportBackendErrorSubmit = reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
+    await assertReportSubmittingState(reportSection);
+    await reportBackendErrorSubmit;
     await reportSection
       .locator("pre")
       .filter({ hasText: '"error": "Report intake backend unavailable."' })
@@ -1602,7 +1720,10 @@ async function main() {
     });
     backendErrorWorkbenchHeadings.add("Report intake and normalization");
     await assertUiStateUnchangedAfterError(page, sections, reportBackendErrorSnapshot, discoveredWorkbenchHeadings);
-    log("report", "surfaced a backend report error without mutating persisted state or dropping the current draft");
+    log(
+      "report",
+      "froze report controls during an in-flight request, then surfaced a backend error without mutating persisted state or dropping the current draft",
+    );
 
     const reportJsonErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill("{");
@@ -1680,6 +1801,7 @@ async function main() {
     await page.route(
       "**/api/intake/intervention",
       async (route) => {
+        await sleep(1000);
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -1690,7 +1812,11 @@ async function main() {
       },
       { times: 1 },
     );
-    await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
+    const interventionBackendErrorSubmit = interventionSection
+      .getByRole("button", { name: "Save intervention", exact: true })
+      .click();
+    await assertInterventionSubmittingState(interventionSection);
+    await interventionBackendErrorSubmit;
     await interventionSection
       .locator("pre")
       .filter({ hasText: '"error": "Intervention backend unavailable."' })
@@ -1707,7 +1833,10 @@ async function main() {
       interventionBackendErrorSnapshot,
       discoveredWorkbenchHeadings,
     );
-    log("intervention", "surfaced a backend intervention error without mutating persisted state or dropping the current draft");
+    log(
+      "intervention",
+      "froze intervention controls during an in-flight request, then surfaced a backend error without mutating persisted state or dropping the current draft",
+    );
 
     const interventionDateErrorSnapshot = await loadPersistedSnapshot();
     await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").fill("");

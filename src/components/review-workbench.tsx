@@ -212,7 +212,11 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
           <div className="field-grid">
             <label className="field">
               <span className="detail-label">Parse task</span>
-              <select value={selectedTaskId} onChange={(event) => setSelectedTaskId(event.target.value)}>
+              <select
+                disabled={isSubmitting}
+                value={selectedTaskId}
+                onChange={(event) => setSelectedTaskId(event.target.value)}
+              >
                 {candidateTasks.map((task) => (
                   <option key={task.id} value={task.id}>
                     {task.sourceDocumentFilename} | {task.parser}
@@ -223,7 +227,11 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
 
             <label className="field">
               <span className="detail-label">Candidate</span>
-              <select value={selectedCandidateId} onChange={(event) => setSelectedCandidateId(event.target.value)}>
+              <select
+                disabled={isSubmitting}
+                value={selectedCandidateId}
+                onChange={(event) => setSelectedCandidateId(event.target.value)}
+              >
                 {(selectedTask?.candidates ?? []).map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
                     {candidate.displayName} | {candidate.valueLabel}
@@ -236,7 +244,11 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
           <div className="field-grid" style={{ marginTop: 16 }}>
             <label className="field">
               <span className="detail-label">Action</span>
-              <select value={action} onChange={(event) => handleActionChange(event.target.value as typeof action)}>
+              <select
+                disabled={isSubmitting}
+                value={action}
+                onChange={(event) => handleActionChange(event.target.value as typeof action)}
+              >
                 <option value="accept">Accept candidate</option>
                 <option value="reject">Reject candidate</option>
                 <option value="follow_up">Flag for follow-up</option>
@@ -245,14 +257,18 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
 
             <label className="field">
               <span className="detail-label">Reviewer</span>
-              <input value={reviewerName} onChange={(event) => handleReviewerNameChange(event.target.value)} />
+              <input
+                disabled={isSubmitting}
+                value={reviewerName}
+                onChange={(event) => handleReviewerNameChange(event.target.value)}
+              />
             </label>
           </div>
 
           <label className="field" style={{ marginTop: 16 }}>
             <span className="detail-label">Proposed canonical mapping</span>
             <select
-              disabled={action !== "accept"}
+              disabled={isSubmitting || action !== "accept"}
               value={proposedCanonicalCode}
               onChange={(event) => handleProposedCanonicalCodeChange(event.target.value)}
             >
@@ -267,7 +283,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
 
           <label className="field" style={{ marginTop: 16 }}>
             <span className="detail-label">Note</span>
-            <textarea value={note} onChange={(event) => handleNoteChange(event.target.value)} />
+            <textarea disabled={isSubmitting} value={note} onChange={(event) => handleNoteChange(event.target.value)} />
           </label>
 
           {selectedCandidate ? (
@@ -284,7 +300,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
             <button className="button button-primary" disabled={isSubmitting} onClick={handleSubmit} type="button">
               {isSubmitting ? "Saving..." : "Save review decision"}
             </button>
-            <button className="button button-secondary" onClick={resetDemo} type="button">
+            <button className="button button-secondary" disabled={isSubmitting} onClick={resetDemo} type="button">
               Reset demo
             </button>
           </div>

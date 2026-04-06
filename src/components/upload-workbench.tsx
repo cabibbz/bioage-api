@@ -90,6 +90,7 @@ export function UploadWorkbench() {
         <label className="field">
           <span className="detail-label">Vendor</span>
           <select
+            disabled={isSubmitting}
             value={vendor}
             onChange={(event) => {
               setVendor(event.target.value);
@@ -111,6 +112,7 @@ export function UploadWorkbench() {
       <label className="field" style={{ marginTop: 16 }}>
         <span className="detail-label">Entries JSON</span>
         <textarea
+          disabled={isSubmitting}
           value={payloadText}
           onChange={(event) => {
             setPayloadText(event.target.value);
@@ -126,7 +128,7 @@ export function UploadWorkbench() {
         <button className="button button-primary" disabled={isSubmitting} onClick={handleSubmit} type="button">
           {isSubmitting ? "Normalizing..." : "Run normalization"}
         </button>
-        <button className="button button-secondary" onClick={resetDemo} type="button">
+        <button className="button button-secondary" disabled={isSubmitting} onClick={resetDemo} type="button">
           Reset demo
         </button>
       </div>

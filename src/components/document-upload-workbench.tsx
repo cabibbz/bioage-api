@@ -99,6 +99,7 @@ export function DocumentUploadWorkbench() {
         <label className="field">
           <span className="detail-label">Source system</span>
           <input
+            disabled={isSubmitting}
             value={sourceSystem}
             onChange={(event) => {
               setSourceSystem(event.target.value);
@@ -117,6 +118,7 @@ export function DocumentUploadWorkbench() {
         <span className="detail-label">File</span>
         <input
           accept={acceptedTypes}
+          disabled={isSubmitting}
           key={fileInputResetKey}
           onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
           type="file"
@@ -130,7 +132,7 @@ export function DocumentUploadWorkbench() {
         <button className="button button-primary" disabled={isSubmitting} onClick={handleSubmit} type="button">
           {isSubmitting ? "Uploading..." : "Store source document"}
         </button>
-        <button className="button button-secondary" onClick={resetDemo} type="button">
+        <button className="button button-secondary" disabled={isSubmitting} onClick={resetDemo} type="button">
           Reset
         </button>
       </div>

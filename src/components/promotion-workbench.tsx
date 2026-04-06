@@ -130,7 +130,11 @@ export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWo
         <>
           <label className="field">
             <span className="detail-label">Accepted review decision</span>
-            <select value={selectedDecisionId} onChange={(event) => setSelectedDecisionId(event.target.value)}>
+            <select
+              disabled={isSubmitting}
+              value={selectedDecisionId}
+              onChange={(event) => setSelectedDecisionId(event.target.value)}
+            >
               {pendingAcceptedDecisions.map((decision) => (
                 <option key={decision.id} value={decision.id}>
                   {decision.candidateDisplayName} to {decision.proposedCanonicalCode}
@@ -155,7 +159,7 @@ export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWo
             <button className="button button-primary" disabled={isSubmitting} onClick={handleSubmit} type="button">
               {isSubmitting ? "Promoting..." : "Promote measurement"}
             </button>
-            <button className="button button-secondary" onClick={resetDemo} type="button">
+            <button className="button button-secondary" disabled={isSubmitting} onClick={resetDemo} type="button">
               Reset demo
             </button>
           </div>
