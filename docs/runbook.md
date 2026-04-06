@@ -73,6 +73,7 @@ This runs:
 - live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
 - the browser document path now uploads multiple ZIP archives and verifies extracted-child rendering plus parser-list overflow behavior on `/`
 - the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
+- the browser suite now creates enough accepted reviews and promotions to verify overflow behavior for the capped recent-decisions and recent-promotions feeds
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 

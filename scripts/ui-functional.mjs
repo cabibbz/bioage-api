@@ -137,6 +137,21 @@ async function waitForSelectOptionContaining(selectLocator, text) {
   throw new Error(`Timed out waiting for select option containing "${text}".`);
 }
 
+async function waitForSelectOptionValue(selectLocator, value) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const options = await selectLocator.locator("option").evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("value") ?? ""),
+    );
+    if (options.includes(value)) {
+      return;
+    }
+
+    await selectLocator.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for select option value "${value}".`);
+}
+
 function countFlaggedSignals(snapshot) {
   return snapshot.patient.measurements.filter(
     (measurement) => measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch",
@@ -167,6 +182,27 @@ async function loadPersistedSnapshot() {
   });
   assert.ok(snapshot, `Persisted patient ${patientId} should exist.`);
   return snapshot;
+}
+
+function resolveCsvReviewTarget(snapshot, sourceDocumentFilename, candidateDisplayName) {
+  const task = snapshot.parseTasks.find(
+    (entry) => entry.sourceDocumentFilename === sourceDocumentFilename && entry.parser === "csv_table",
+  );
+  assert.ok(task, `CSV parse task for ${sourceDocumentFilename} should exist.`);
+
+  const candidate = task.candidates.find((entry) => entry.displayName === candidateDisplayName);
+  assert.ok(candidate, `Candidate ${candidateDisplayName} should exist on ${sourceDocumentFilename}.`);
+
+  return { task, candidate };
+}
+
+function resolveReviewDecision(snapshot, sourceDocumentFilename, candidateDisplayName) {
+  const { task, candidate } = resolveCsvReviewTarget(snapshot, sourceDocumentFilename, candidateDisplayName);
+  const decision = snapshot.reviewDecisions.find(
+    (entry) => entry.parseTaskId === task.id && entry.candidateId === candidate.id,
+  );
+  assert.ok(decision, `Review decision for ${candidateDisplayName} on ${sourceDocumentFilename} should exist.`);
+  return decision;
 }
 
 async function expectSectionHeadPill(section, text) {
@@ -670,11 +706,55 @@ async function main() {
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
+    const reviewTargets = [
+      {
+        sourceFilename: latestArchive.childCsvFilename,
+        candidateDisplayName: "ApoB",
+        proposedCanonicalCode: "apob",
+        reviewerName: "UI clinician 1",
+        note: "Latest ApoB review kept for promotion overflow coverage.",
+      },
+      {
+        sourceFilename: latestArchive.childCsvFilename,
+        candidateDisplayName: "C-Reactive Protein",
+        proposedCanonicalCode: "inflammation_crp",
+        reviewerName: "UI clinician 2",
+        note: "Latest CRP review kept for promotion overflow coverage.",
+      },
+      {
+        sourceFilename: additionalArchives[0].childCsvFilename,
+        candidateDisplayName: "ApoB",
+        proposedCanonicalCode: "apob",
+        reviewerName: "UI clinician 3",
+        note: "Second archive ApoB review kept for overflow coverage.",
+      },
+      {
+        sourceFilename: additionalArchives[0].childCsvFilename,
+        candidateDisplayName: "C-Reactive Protein",
+        proposedCanonicalCode: "inflammation_crp",
+        reviewerName: "UI clinician 4",
+        note: "Second archive CRP review kept for overflow coverage.",
+      },
+      {
+        sourceFilename: firstArchive.childCsvFilename,
+        candidateDisplayName: "ApoB",
+        proposedCanonicalCode: "apob",
+        reviewerName: "UI clinician 5",
+        note: "First archive ApoB review kept for overflow coverage.",
+      },
+    ];
+    const firstReviewTarget = reviewTargets[0];
     const reviewErrorSnapshot = await loadPersistedSnapshot();
-    await waitForSelectOptionContaining(parseTaskSelect, latestArchive.childCsvFilename);
-    await parseTaskSelect.selectOption({ label: `${latestArchive.childCsvFilename} | csv_table` });
+    const errorReviewTarget = resolveCsvReviewTarget(
+      reviewErrorSnapshot,
+      firstReviewTarget.sourceFilename,
+      firstReviewTarget.candidateDisplayName,
+    );
+    await waitForSelectOptionValue(parseTaskSelect, errorReviewTarget.task.id);
+    await parseTaskSelect.selectOption({ value: errorReviewTarget.task.id });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
-    await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
+    await waitForSelectOptionValue(candidateSelect, errorReviewTarget.candidate.id);
+    await candidateSelect.selectOption({ value: errorReviewTarget.candidate.id });
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("   ");
     await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
     await reviewSection
@@ -686,26 +766,45 @@ async function main() {
     log("review", "rejected blank reviewer input without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
-    await waitForSelectOptionContaining(parseTaskSelect, latestArchive.childCsvFilename);
-    await parseTaskSelect.selectOption({ label: `${latestArchive.childCsvFilename} | csv_table` });
-    await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
-    await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
-    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician");
-    await reviewSection.locator("label").filter({ hasText: "Proposed canonical mapping" }).locator("select").selectOption("apob");
-    await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill("UI review path accepted for promotion.");
-    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
-    await reviewSection.locator("pre").filter({ hasText: '"action": "accept"' }).waitFor();
-    await refreshDashboard(page);
-    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
-    await reviewSection.getByText("UI clinician").waitFor();
-    await parseTasksSection.getByText("1 reviewed").waitFor();
+    for (const target of reviewTargets) {
+      const snapshotBeforeReview = await loadPersistedSnapshot();
+      const resolvedTarget = resolveCsvReviewTarget(
+        snapshotBeforeReview,
+        target.sourceFilename,
+        target.candidateDisplayName,
+      );
+      await waitForSelectOptionValue(parseTaskSelect, resolvedTarget.task.id);
+      await parseTaskSelect.selectOption({ value: resolvedTarget.task.id });
+      await waitForSelectOptionValue(candidateSelect, resolvedTarget.candidate.id);
+      await candidateSelect.selectOption({ value: resolvedTarget.candidate.id });
+      await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill(target.reviewerName);
+      await reviewSection
+        .locator("label")
+        .filter({ hasText: "Proposed canonical mapping" })
+        .locator("select")
+        .selectOption(target.proposedCanonicalCode);
+      await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill(target.note);
+      await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+      await reviewSection
+        .locator("pre")
+        .filter({ hasText: `"candidateId": "${resolvedTarget.candidate.id}"` })
+        .waitFor();
+      await refreshDashboard(page);
+      await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    }
     coveredDashboardHeadings.add("Document parse tasks");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
-    log("review", "accepted and mapped a parser candidate through the UI");
+    log("review", "accepted five parser candidates through the UI and verified recent-decision overflow rendering");
 
     const promotionSelect = promotionSection.locator("select").first();
     const promotionErrorSnapshot = await loadPersistedSnapshot();
-    await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
+    const promotionErrorDecision = resolveReviewDecision(
+      promotionErrorSnapshot,
+      firstReviewTarget.sourceFilename,
+      firstReviewTarget.candidateDisplayName,
+    );
+    await waitForSelectOptionValue(promotionSelect, promotionErrorDecision.id);
+    await promotionSelect.selectOption({ value: promotionErrorDecision.id });
     await page.route(
       "**/api/review/promote",
       async (route) => {
@@ -728,17 +827,27 @@ async function main() {
     log("promotion", "rejected an invalid promotion request without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Promote accepted decisions");
-    await waitForSelectOptionContaining(promotionSelect, "ApoB to apob");
-    await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
-    await promotionSection.locator("pre").filter({ hasText: '"canonicalCode": "apob"' }).waitFor();
-    await refreshDashboard(page);
-    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
-    await promotionSection.getByText("ApoB", { exact: true }).waitFor();
-    await timelineSection.getByText("ApoB promoted into canonical record").waitFor();
+    for (const target of reviewTargets) {
+      const snapshotBeforePromotion = await loadPersistedSnapshot();
+      const decision = resolveReviewDecision(
+        snapshotBeforePromotion,
+        target.sourceFilename,
+        target.candidateDisplayName,
+      );
+      await waitForSelectOptionValue(promotionSelect, decision.id);
+      await promotionSelect.selectOption({ value: decision.id });
+      await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
+      await promotionSection
+        .locator("pre")
+        .filter({ hasText: `"reviewDecisionId": "${decision.id}"` })
+        .waitFor();
+      await refreshDashboard(page);
+      await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    }
     coveredDashboardHeadings.add("Interventions and evidence windows");
     coveredDashboardHeadings.add("Modality-aware evidence cards");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
-    log("promotion", "promoted the accepted review decision through the UI");
+    log("promotion", "promoted five accepted decisions through the UI and verified recent-promotion overflow rendering");
 
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
@@ -795,7 +904,7 @@ async function main() {
       assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === archive.childCsvFilename));
       assert.ok(snapshot.sourceDocuments.some((document) => document.originalFilename === archive.childTextFilename));
     });
-    assert.ok(snapshot.reviewDecisions.some((decision) => decision.reviewerName === "UI clinician"));
+    assert.ok(snapshot.reviewDecisions.some((decision) => decision.reviewerName.startsWith("UI clinician")));
     assert.ok(snapshot.measurementPromotions.some((promotion) => promotion.canonicalCode === "apob"));
     assert.ok(snapshot.reportIngestions.some((ingestion) => ingestion.vendor === "Hurdle"));
     assert.ok(snapshot.patient.timeline.some((event) => event.title === "UI intervention checkpoint"));
