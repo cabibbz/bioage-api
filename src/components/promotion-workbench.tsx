@@ -2,9 +2,10 @@
 
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { StoredMeasurementPromotion, StoredReviewDecision } from "@/src/lib/persistence/store-types";
+import { StoredMeasurementPromotion, StoredParseTask, StoredReviewDecision } from "@/src/lib/persistence/store-types";
 
 type PromotionWorkbenchProps = {
+  tasks: StoredParseTask[];
   decisions: StoredReviewDecision[];
   promotions: StoredMeasurementPromotion[];
 };
@@ -17,14 +18,27 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function PromotionWorkbench({ decisions, promotions }: PromotionWorkbenchProps) {
+export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWorkbenchProps) {
   const router = useRouter();
+  const promotableCandidateKeys = useMemo(() => {
+    return new Set(
+      tasks.flatMap((task) =>
+        task.candidates
+          .filter((candidate) => candidate.numericValue !== undefined)
+          .map((candidate) => `${task.id}:${candidate.id}`),
+      ),
+    );
+  }, [tasks]);
   const pendingAcceptedDecisions = useMemo(() => {
     const promotedDecisionIds = new Set(promotions.map((promotion) => promotion.reviewDecisionId));
     return decisions.filter(
-      (decision) => decision.action === "accept" && decision.proposedCanonicalCode && !promotedDecisionIds.has(decision.id),
+      (decision) =>
+        decision.action === "accept" &&
+        decision.proposedCanonicalCode &&
+        promotableCandidateKeys.has(`${decision.parseTaskId}:${decision.candidateId}`) &&
+        !promotedDecisionIds.has(decision.id),
     );
-  }, [decisions, promotions]);
+  }, [decisions, promotableCandidateKeys, promotions]);
 
   const [selectedDecisionId, setSelectedDecisionId] = useState(pendingAcceptedDecisions[0]?.id ?? "");
   const [result, setResult] = useState("");
@@ -104,7 +118,9 @@ export function PromotionWorkbench({ decisions, promotions }: PromotionWorkbench
       {pendingAcceptedDecisions.length === 0 ? (
         <div className="detail-card">
           <div className="detail-label">No pending promotions</div>
-          <p className="detail-copy">Accept and map a parser candidate first, then it will appear here for promotion.</p>
+          <p className="detail-copy">
+            Accept, map, and verify a numeric parser candidate first, then it will appear here for promotion.
+          </p>
         </div>
       ) : (
         <>

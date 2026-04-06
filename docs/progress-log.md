@@ -33,6 +33,7 @@
 - expanded the browser suite again so an existing rejected decision is updated back to accepted through the UI, the pending promotion queue recovers, and the reopened decision can be promoted without duplicating review records
 - fixed the review workbench so selecting a previously reviewed candidate reloads the saved action, reviewer, mapping, and note instead of stale demo defaults, and added browser assertions for that reopened state
 - tightened the review contract so canonical mappings are accept-only: stale mappings are stripped from non-accept saves in both backends, and the UI clears the mapping field when the action changes away from accept
+- fixed the promotion workbench so only accepted mapped numeric candidates appear in its queue, and added browser coverage proving a mapped text-valued FHIR observation remains excluded
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario

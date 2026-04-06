@@ -253,16 +253,20 @@ async function loadPersistedSnapshot() {
   return snapshot;
 }
 
-function resolveCsvReviewTarget(snapshot, sourceDocumentFilename, candidateDisplayName) {
+function resolveReviewTarget(snapshot, sourceDocumentFilename, parser, candidateDisplayName) {
   const task = snapshot.parseTasks.find(
-    (entry) => entry.sourceDocumentFilename === sourceDocumentFilename && entry.parser === "csv_table",
+    (entry) => entry.sourceDocumentFilename === sourceDocumentFilename && entry.parser === parser,
   );
-  assert.ok(task, `CSV parse task for ${sourceDocumentFilename} should exist.`);
+  assert.ok(task, `${parser} parse task for ${sourceDocumentFilename} should exist.`);
 
   const candidate = task.candidates.find((entry) => entry.displayName === candidateDisplayName);
   assert.ok(candidate, `Candidate ${candidateDisplayName} should exist on ${sourceDocumentFilename}.`);
 
   return { task, candidate };
+}
+
+function resolveCsvReviewTarget(snapshot, sourceDocumentFilename, candidateDisplayName) {
+  return resolveReviewTarget(snapshot, sourceDocumentFilename, "csv_table", candidateDisplayName);
 }
 
 function resolveReviewDecision(snapshot, sourceDocumentFilename, candidateDisplayName) {
@@ -302,8 +306,19 @@ function reviewCountsByTask(snapshot) {
 
 function pendingPromotionDecisions(snapshot) {
   const promotedDecisionIds = new Set(snapshot.measurementPromotions.map((promotion) => promotion.reviewDecisionId));
+  const promotableCandidateKeys = new Set(
+    snapshot.parseTasks.flatMap((task) =>
+      task.candidates
+        .filter((candidate) => candidate.numericValue !== undefined)
+        .map((candidate) => `${task.id}:${candidate.id}`),
+    ),
+  );
   return snapshot.reviewDecisions.filter(
-    (decision) => decision.action === "accept" && decision.proposedCanonicalCode && !promotedDecisionIds.has(decision.id),
+    (decision) =>
+      decision.action === "accept" &&
+      decision.proposedCanonicalCode &&
+      promotableCandidateKeys.has(`${decision.parseTaskId}:${decision.candidateId}`) &&
+      !promotedDecisionIds.has(decision.id),
   );
 }
 
@@ -618,6 +633,20 @@ function csvFixture() {
   );
 }
 
+function textObservationFixture() {
+  return Buffer.from(
+    JSON.stringify({
+      resourceType: "Observation",
+      status: "final",
+      code: {
+        text: "ApoB interpretation",
+      },
+      valueString: "borderline high",
+      effectiveDateTime: "2026-04-03T09:00:00.000Z",
+    }),
+  );
+}
+
 async function zipFixture(prefix) {
   const zip = new JSZip();
   zip.file(`labs/${prefix}-labs.csv`, csvFixture());
@@ -782,6 +811,14 @@ async function main() {
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
+    const nonNumericObservation = {
+      filename: "ui-functional-text-observation.json",
+      sourceSystem: "UI functional text observation",
+      candidateDisplayName: "ApoB interpretation",
+      reviewerName: "UI clinician text accept",
+      proposedCanonicalCode: "apob",
+      note: "Accepted text-valued observation to prove it stays out of the promotion queue.",
+    };
     const acceptedReviewTargets = [
       {
         sourceFilename: latestArchive.childCsvFilename,
@@ -837,6 +874,28 @@ async function main() {
       },
     ];
     const firstReviewTarget = acceptedReviewTargets[0];
+
+    await documentSection
+      .locator("label")
+      .filter({ hasText: "Source system" })
+      .locator("input")
+      .fill(nonNumericObservation.sourceSystem);
+    await documentSection.locator('input[type="file"]').setInputFiles({
+      name: nonNumericObservation.filename,
+      mimeType: "application/json",
+      buffer: textObservationFixture(),
+    });
+    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    await documentSection
+      .locator("pre")
+      .filter({ hasText: `"originalFilename": "${nonNumericObservation.filename}"` })
+      .waitFor();
+    await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    await parseTasksSection.getByText(nonNumericObservation.filename, { exact: true }).waitFor();
+    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
+    log("document", "uploaded a text-valued FHIR observation through the UI for promotion-queue eligibility coverage");
+
     const reviewErrorSnapshot = await loadPersistedSnapshot();
     const errorReviewTarget = resolveCsvReviewTarget(
       reviewErrorSnapshot,
@@ -859,6 +918,47 @@ async function main() {
     log("review", "rejected blank reviewer input without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
+    const snapshotBeforeTextReview = await loadPersistedSnapshot();
+    const nonNumericReviewTarget = resolveReviewTarget(
+      snapshotBeforeTextReview,
+      nonNumericObservation.filename,
+      "fhir_resource",
+      nonNumericObservation.candidateDisplayName,
+    );
+    await waitForSelectOptionValue(parseTaskSelect, nonNumericReviewTarget.task.id);
+    await parseTaskSelect.selectOption({ value: nonNumericReviewTarget.task.id });
+    await waitForSelectOptionValue(candidateSelect, nonNumericReviewTarget.candidate.id);
+    await candidateSelect.selectOption({ value: nonNumericReviewTarget.candidate.id });
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Reviewer" })
+      .locator("input")
+      .fill(nonNumericObservation.reviewerName);
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Proposed canonical mapping" })
+      .locator("select")
+      .selectOption(nonNumericObservation.proposedCanonicalCode);
+    await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill(nonNumericObservation.note);
+    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await reviewSection
+      .locator("pre")
+      .filter({ hasText: `"candidateId": "${nonNumericReviewTarget.candidate.id}"` })
+      .waitFor();
+    await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    const afterTextReview = await loadPersistedSnapshot();
+    const nonNumericDecision = afterTextReview.reviewDecisions.find(
+      (decision) =>
+        decision.parseTaskId === nonNumericReviewTarget.task.id && decision.candidateId === nonNumericReviewTarget.candidate.id,
+    );
+    assert.ok(nonNumericDecision, "Accepted text-valued review decision should persist.");
+    assert.equal(nonNumericDecision.proposedCanonicalCode, nonNumericObservation.proposedCanonicalCode);
+    assert.equal(pendingPromotionDecisions(afterTextReview).length, 0);
+    await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
+    await assertDashboardMatchesSnapshot(sections, afterTextReview);
+    log("review", "accepted a text-valued observation and verified it stayed out of the promotion queue");
+
     for (const target of acceptedReviewTargets) {
       const snapshotBeforeReview = await loadPersistedSnapshot();
       const resolvedTarget = resolveCsvReviewTarget(
@@ -886,7 +986,13 @@ async function main() {
       await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     }
     coveredDashboardHeadings.add("Document parse tasks");
-    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
+    const afterAcceptedReviews = await loadPersistedSnapshot();
+    const promotionOptionValuesAfterAcceptedReviews = await readSelectOptionValues(promotionSection.locator("select").first());
+    assert.ok(
+      !promotionOptionValuesAfterAcceptedReviews.includes(nonNumericDecision.id),
+      "Accepted non-numeric decisions should not appear in the promotion queue.",
+    );
+    await assertDashboardMatchesSnapshot(sections, afterAcceptedReviews);
     log("review", "accepted five parser candidates through the UI and verified recent-decision overflow rendering");
 
     const promotionSelect = promotionSection.locator("select").first();
