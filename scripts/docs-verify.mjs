@@ -37,6 +37,20 @@ const requiredDocs = [
     headings: ["## Executive Summary", "## Standards Reality", "## Product Direction", "## Sources"],
   },
   {
+    file: "docs/research/ingestion-format-landscape.md",
+    headings: [
+      "## Executive Summary",
+      "## What The Product Schema Must Handle",
+      "## Recommended Ingestion Architecture",
+      "## Immediate Build Recommendations",
+      "## Sources",
+    ],
+  },
+  {
+    file: "docs/research/parsing-pipeline-strategy.md",
+    headings: ["## Executive Summary", "## What This Means For Parsing", "## Recommended Next Implementation", "## Sources"],
+  },
+  {
     file: "docs/research/review-decision-workflow.md",
     headings: ["## Executive Summary", "## Standards Signals", "## Product Implication", "## Sources"],
   },
@@ -51,6 +65,26 @@ const requiredDocs = [
   {
     file: "docs/research/object-storage-plan.md",
     headings: ["## Executive Summary", "## Why This Needs Its Own Layer", "## Migration Rule", "## What I'd Do Next"],
+  },
+  {
+    file: "docs/research/vendor-biomarker-catalog.md",
+    headings: [
+      "## Executive Summary",
+      "## 3. Wearable Devices",
+      "## 6. Lab Company Integration Reality",
+      "## 7. Critical Normalization Traps (Summary)",
+      "## Sources",
+    ],
+  },
+  {
+    file: "docs/research/canonical-catalog-expansion.md",
+    headings: [
+      "## Executive Summary",
+      "## Schema Extension Required",
+      "## Catalog Entries by Priority Tier",
+      "## Data Model Implications",
+      "## Implementation Order",
+    ],
   },
   {
     file: "docs/compact/PROJECT_SNAPSHOT.md",

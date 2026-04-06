@@ -1059,20 +1059,47 @@ const scenarios = [
         vendor: "Functional longevity panel",
         observedAt: "2026-04-04T09:00:00.000Z",
         entries: [
-          { name: "Biological Age", value: 45.2, unit: "years" },
-          { name: "DunedinPACE", value: 0.91 },
+          { name: "Index biological age", value: 45.2, unit: "years" },
+          { name: "OMICm FitAge", value: 42.7, unit: "years" },
+          { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
+          { name: "LDL-C", value: 81, unit: "mg/dL" },
+          { name: "HbA1c", value: 34, unit: "mmol/mol" },
+          { name: "Lp(a)", value: 28, unit: "mg/dL" },
+          { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
           { name: "Mystery Marker", value: 12.3, unit: "arb" },
-          { name: "CRP", value: 1.4, unit: "mg/L" },
         ],
       });
 
-      assert.equal(report.normalizationSummary.totalEntries, 4);
+      assert.equal(report.normalizationSummary.totalEntries, 8);
       assert.equal(report.normalizationSummary.mappedEntries, report.measurements.length);
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        4,
+        8,
       );
+      assert.deepEqual(
+        report.measurements.map((measurement) => measurement.canonicalCode).sort(),
+        [
+          "apob",
+          "epigenetic_biological_age",
+          "epigenetic_fitness_age",
+          "hba1c",
+          "ldl_cholesterol",
+          "lp_a",
+          "vitamin_d",
+        ].sort(),
+      );
+      assert.deepEqual(report.unmappedEntries, [{ sourceField: "Mystery Marker", value: 12.3, unit: "arb" }]);
+      const hba1cMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "hba1c");
+      assert.ok(hba1cMeasurement);
+      assert.equal(hba1cMeasurement.value, 5.26);
+      assert.equal(hba1cMeasurement.unit, "%");
+      assert.ok(hba1cMeasurement.note.includes("NGSP/IFCC master equation"));
+      const lpAMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "lp_a");
+      assert.ok(lpAMeasurement);
+      assert.equal(lpAMeasurement.value, 28);
+      assert.equal(lpAMeasurement.unit, "mg/dL");
+      assert.ok(lpAMeasurement.note.includes("not directly interchangeable"));
 
       const after = await getPatientSnapshot();
       assertCountDelta(countSnapshot(before), countSnapshot(after), {

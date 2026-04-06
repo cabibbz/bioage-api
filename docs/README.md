@@ -15,6 +15,8 @@
 - `research/promotion-audit-model.md`: why accepted decisions need explicit promotion records
 - `research/postgres-storage-plan.md`: Postgres/object-storage migration target and repository boundary
 - `research/object-storage-plan.md`: binary storage abstraction and object-storage migration target
+- `research/vendor-biomarker-catalog.md`: actual vendor report outputs, formats, field names, units, and API details for every major longevity data source
+- `research/canonical-catalog-expansion.md`: concrete spec for expanding canonical-catalog.json from 6 to 75+ entries with LOINC codes, aliases, and reference ranges
 
 ## Compact Handoff
 

@@ -1,5 +1,6 @@
 import { MeasurementModality } from "@/src/lib/domain/types";
-import { canonicalCatalog } from "@/src/lib/normalization/catalog";
+import { findCanonicalDefinitionByName, normalizeCatalogKey } from "@/src/lib/normalization/catalog";
+import { resolveMeasurementUnit } from "@/src/lib/normalization/units";
 
 type NormalizeEntry = {
   name: string;
@@ -40,19 +41,13 @@ export type NormalizedReportPayload = {
   unmappedEntries: UnmappedEntry[];
 };
 
-function normalizeKey(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 export function normalizeReportPayload(input: NormalizeInput): NormalizedReportPayload {
   const measurements: NormalizedMeasurement[] = [];
   const unmappedEntries: UnmappedEntry[] = [];
 
   for (const entry of input.entries) {
-    const normalizedName = normalizeKey(entry.name);
-    const match = canonicalCatalog.find((item) =>
-      item.aliases.some((alias) => normalizeKey(alias) === normalizedName),
-    );
+    const normalizedName = normalizeCatalogKey(entry.name);
+    const match = findCanonicalDefinitionByName(entry.name);
 
     if (!match) {
       unmappedEntries.push({
@@ -63,20 +58,27 @@ export function normalizeReportPayload(input: NormalizeInput): NormalizedReportP
       continue;
     }
 
+    const normalizedUnit = resolveMeasurementUnit(match, entry.value, entry.unit);
+
     measurements.push({
       canonicalCode: match.canonicalCode,
       title: match.title,
       modality: match.modality,
       sourceVendor: input.vendor,
       sourceField: entry.name,
-      value: entry.value,
-      unit: entry.unit ?? match.preferredUnit,
+      value: normalizedUnit.value,
+      unit: normalizedUnit.unit,
       observedAt: input.observedAt,
-      confidence: match.aliases[0] === normalizedName ? "high" : "moderate",
-      note:
+      confidence: normalizeCatalogKey(match.aliases[0]) === normalizedName ? "high" : "moderate",
+      note: [
         match.modality === "epigenetic"
           ? "Preserve source report and vendor method details before clinician review."
           : "Suitable for timeline ingestion after unit and reference-range review.",
+        normalizedUnit.note,
+        match.notes,
+      ]
+        .filter(Boolean)
+        .join(" "),
     });
   }
 

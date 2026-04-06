@@ -6,17 +6,29 @@ The product does not start from one global biological-age score.
 
 It starts from canonical concepts that preserve modality and provenance:
 
-- `epigenetic_biological_age`
-- `pace_of_aging`
-- `inflammation_crp`
-- `wearable_hrv_sleep_window`
-- `resting_heart_rate`
-- `apob`
+- biological-age concepts such as `epigenetic_biological_age`, `pace_of_aging`, `epigenetic_fitness_age`, and `telomere_length`
+- core lipid and metabolic concepts such as `apob`, `ldl_cholesterol`, `fasting_glucose`, `fasting_insulin`, and `hba1c`
+- inflammatory and hormone concepts such as `inflammation_crp`, `homocysteine`, `il_6`, `testosterone_total`, and `tsh`
+- wearable concepts such as `wearable_hrv_sleep_window`, `wearable_hrv_sdnn`, `resting_heart_rate`, `wearable_spo2`, and `wearable_vo2max_estimate`
 
 Each source value should keep both:
 
 - original vendor/source field
 - canonical mapped concept
+
+The canonical catalog now also carries:
+
+- biomarker category
+- preferred unit plus optional alternate units
+- optional primary LOINC code
+- optional reference-range and longevity-target metadata
+- normalization notes for known traps such as RMSSD vs SDNN HRV and Lp(a) unit ambiguity
+
+Normalization currently uses that catalog to:
+
+- resolve aliases through a validated shared lookup contract
+- convert the first safe alternate-unit case set such as HbA1c IFCC mmol/mol into the preferred unit
+- preserve explicitly non-convertible alternates such as Lp(a) mg/dL with a flagged note instead of silent conversion
 
 ## Persistence Shape
 
@@ -35,6 +47,7 @@ Current persistence boundary:
 - file-backed JSON remains the default and verified backend
 - Postgres runtime now exists behind `PERSISTENCE_BACKEND=postgres`
 - source binaries are written through a storage adapter
+- the shared canonical catalog is a validated JSON contract used by normalization, review mapping, and verification helpers
 
 Patient records currently include:
 

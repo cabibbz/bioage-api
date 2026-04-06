@@ -2021,9 +2021,13 @@ async function main() {
       await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").inputValue(),
       JSON.stringify(
         [
-          { name: "OMICmAge", value: 45.1, unit: "years" },
-          { name: "DunedinPACE", value: 0.91 },
-          { name: "CRP", value: 1.4, unit: "mg/L" },
+          { name: "Index biological age", value: 45.1, unit: "years" },
+          { name: "OMICm FitAge", value: 43.4, unit: "years" },
+          { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
+          { name: "LDL-C", value: 81, unit: "mg/dL" },
+          { name: "HbA1c", value: 34, unit: "mmol/mol" },
+          { name: "Lp(a)", value: 28, unit: "mg/dL" },
+          { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
           { name: "Unknown vendor score", value: 72 },
         ],
         null,
@@ -2037,7 +2041,11 @@ async function main() {
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
-    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 3' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 7' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "hba1c"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"value": 5.26' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "lp_a"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: "not directly interchangeable" }).waitFor();
     await refreshDashboard(page);
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("Hurdle report normalized").waitFor();

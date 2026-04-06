@@ -6,6 +6,7 @@ dist
 .env.local
 .env.production
 coverage
+.claude
 *.log
 data/uploads/*
 !data/uploads/.gitkeep

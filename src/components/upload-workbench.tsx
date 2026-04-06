@@ -9,9 +9,13 @@ const demoPayload = {
   vendor: "TruDiagnostic",
   observedAt: "2026-04-05T12:00:00.000Z",
   entries: [
-    { name: "OMICmAge", value: 45.1, unit: "years" },
-    { name: "DunedinPACE", value: 0.91 },
-    { name: "CRP", value: 1.4, unit: "mg/L" },
+    { name: "Index biological age", value: 45.1, unit: "years" },
+    { name: "OMICm FitAge", value: 43.4, unit: "years" },
+    { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
+    { name: "LDL-C", value: 81, unit: "mg/dL" },
+    { name: "HbA1c", value: 34, unit: "mmol/mol" },
+    { name: "Lp(a)", value: 28, unit: "mg/dL" },
+    { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
     { name: "Unknown vendor score", value: 72 },
   ],
 };

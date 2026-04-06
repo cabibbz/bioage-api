@@ -69,6 +69,12 @@
 - fixed the runner shutdown helper so forced `SIGKILL` paths still wait for actual process exit before local-state cleanup begins
 - made the non-mutating Postgres seed drift check retry fresh store-to-SQL regeneration before failing, so transient cleanup races stop flaking the full verification gate
 - added a browser parity runner so the same end-to-end clinician workflow now compares normalized final state across file and Postgres backends
+- expanded the canonical catalog from the original six entries to a Tier 1 longevity set with category, LOINC, preferred-unit, range, and normalization-note metadata
+- added runtime and script-side catalog lookup validation so normalization and verification resolve canonical codes through titles, codes, and aliases without ambiguous collisions
+- refreshed the report workbench demo plus functional report-intake coverage so the expanded Tier 1 mappings are exercised through the actual normalization path
+- updated the docs verifier to claim the full research set listed in `docs/README.md`, including the vendor biomarker catalog and canonical catalog expansion spec
+- added the first unit-aware normalization rules so HbA1c IFCC mmol/mol converts into the preferred percent unit while Lp(a) mg/dL stays preserved and explicitly flagged as non-interconvertible
+- expanded the report workbench and both verification suites so converted and preserved alternate-unit cases are exercised through the actual intake flow
 
 ### 2026-04-05
 

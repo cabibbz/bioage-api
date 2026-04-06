@@ -3,41 +3,610 @@
     "canonicalCode": "epigenetic_biological_age",
     "title": "Epigenetic Biological Age",
     "modality": "epigenetic",
+    "category": "biological_age",
     "preferredUnit": "years",
-    "aliases": ["omicmage", "biological age", "bio age", "biological_age"]
+    "aliases": [
+      "omicmage",
+      "biological age",
+      "bio age",
+      "biological_age",
+      "dnage",
+      "dna age",
+      "tallyage",
+      "tally age",
+      "index biological age",
+      "elysium biological age"
+    ],
+    "notes": "Vendor clocks differ. Preserve the source vendor and method alongside the normalized age."
   },
   {
     "canonicalCode": "pace_of_aging",
     "title": "Pace of Aging",
     "modality": "epigenetic",
-    "aliases": ["dunedinpace", "pace of aging", "pace_of_aging"]
+    "category": "biological_age",
+    "preferredUnit": "biological years/year",
+    "aliases": [
+      "dunedinpace",
+      "pace of aging",
+      "pace_of_aging",
+      "cumulative rate of aging"
+    ]
   },
   {
-    "canonicalCode": "inflammation_crp",
-    "title": "Inflammation Signal",
+    "canonicalCode": "epigenetic_fitness_age",
+    "title": "Physical Fitness Age",
+    "modality": "epigenetic",
+    "category": "fitness",
+    "preferredUnit": "years",
+    "aliases": [
+      "omicm fitage",
+      "fit age",
+      "fitness age",
+      "physical fitness age"
+    ]
+  },
+  {
+    "canonicalCode": "intrinsic_epigenetic_age",
+    "title": "Intrinsic Epigenetic Age",
+    "modality": "epigenetic",
+    "category": "biological_age",
+    "preferredUnit": "years",
+    "aliases": [
+      "ieaa",
+      "intrinsic epigenetic age",
+      "horvath clock",
+      "intrinsic age"
+    ]
+  },
+  {
+    "canonicalCode": "extrinsic_epigenetic_age",
+    "title": "Extrinsic Epigenetic Age",
+    "modality": "epigenetic",
+    "category": "biological_age",
+    "preferredUnit": "years",
+    "aliases": [
+      "eeaa",
+      "extrinsic epigenetic age",
+      "hannum clock",
+      "extrinsic age"
+    ]
+  },
+  {
+    "canonicalCode": "glycan_biological_age",
+    "title": "Glycan Biological Age",
     "modality": "blood",
-    "preferredUnit": "mg/L",
-    "aliases": ["crp", "c-reactive protein", "hs-crp", "inflammation score"]
+    "category": "biological_age",
+    "preferredUnit": "years",
+    "aliases": [
+      "glycanage",
+      "glycan age",
+      "glycan biological age"
+    ],
+    "notes": "GlycanAge is blood-derived and should not be merged with methylation-based epigenetic age clocks."
   },
   {
-    "canonicalCode": "wearable_hrv_sleep_window",
-    "title": "Recovery Capacity",
-    "modality": "wearable",
-    "preferredUnit": "ms",
-    "aliases": ["hrv", "average hrv", "nighttime hrv", "rmssd"]
-  },
-  {
-    "canonicalCode": "resting_heart_rate",
-    "title": "Resting Heart Rate",
-    "modality": "wearable",
-    "preferredUnit": "bpm",
-    "aliases": ["rhr", "resting heart rate"]
+    "canonicalCode": "telomere_length",
+    "title": "Telomere Length",
+    "modality": "epigenetic",
+    "category": "biological_age",
+    "preferredUnit": "kb",
+    "aliases": [
+      "average telomere length",
+      "telomere length",
+      "telomere"
+    ],
+    "refRange": {
+      "low": 5,
+      "high": 15
+    },
+    "notes": "Some vendors report telomere length as a T/S ratio instead of kilobases. Preserve the reported unit."
   },
   {
     "canonicalCode": "apob",
     "title": "ApoB",
     "modality": "blood",
+    "category": "lipid",
     "preferredUnit": "mg/dL",
-    "aliases": ["apob", "apo b", "apolipoprotein b"]
+    "loincCode": "1884-6",
+    "aliases": [
+      "apob",
+      "apo b",
+      "apolipoprotein b",
+      "apolipoprotein b, serum"
+    ],
+    "refRange": {
+      "high": 90
+    },
+    "longevityOptimal": {
+      "high": 60
+    }
+  },
+  {
+    "canonicalCode": "ldl_cholesterol",
+    "title": "LDL Cholesterol",
+    "modality": "blood",
+    "category": "lipid",
+    "preferredUnit": "mg/dL",
+    "loincCode": "13457-7",
+    "aliases": [
+      "ldl",
+      "ldl-c",
+      "ldl cholesterol",
+      "ldl cholesterol calc",
+      "ldl cholesterol calculated"
+    ],
+    "refRange": {
+      "high": 100
+    },
+    "longevityOptimal": {
+      "high": 70
+    }
+  },
+  {
+    "canonicalCode": "hdl_cholesterol",
+    "title": "HDL Cholesterol",
+    "modality": "blood",
+    "category": "lipid",
+    "preferredUnit": "mg/dL",
+    "loincCode": "2085-9",
+    "aliases": [
+      "hdl",
+      "hdl-c",
+      "hdl cholesterol"
+    ],
+    "refRange": {
+      "text": ">40 M / >50 F"
+    },
+    "longevityOptimal": {
+      "text": ">50 M / >60 F"
+    }
+  },
+  {
+    "canonicalCode": "triglycerides",
+    "title": "Triglycerides",
+    "modality": "blood",
+    "category": "lipid",
+    "preferredUnit": "mg/dL",
+    "loincCode": "2571-8",
+    "aliases": [
+      "tg",
+      "triglycerides",
+      "triglyceride"
+    ],
+    "refRange": {
+      "high": 150
+    },
+    "longevityOptimal": {
+      "high": 100
+    }
+  },
+  {
+    "canonicalCode": "lp_a",
+    "title": "Lipoprotein(a)",
+    "modality": "blood",
+    "category": "lipid",
+    "preferredUnit": "nmol/L",
+    "alternateUnits": [
+      "mg/dL"
+    ],
+    "loincCode": "43583-4",
+    "aliases": [
+      "lp(a)",
+      "lipoprotein a",
+      "lp-a",
+      "lpa"
+    ],
+    "refRange": {
+      "high": 75
+    },
+    "longevityOptimal": {
+      "high": 50
+    },
+    "notes": "Lp(a) is reported in both nmol/L and mg/dL. These units are not directly interconvertible."
+  },
+  {
+    "canonicalCode": "fasting_glucose",
+    "title": "Fasting Glucose",
+    "modality": "blood",
+    "category": "metabolic",
+    "preferredUnit": "mg/dL",
+    "loincCode": "1558-6",
+    "aliases": [
+      "glucose",
+      "fasting glucose",
+      "blood sugar",
+      "glucose fasting"
+    ],
+    "refRange": {
+      "low": 70,
+      "high": 99
+    },
+    "longevityOptimal": {
+      "low": 72,
+      "high": 85
+    }
+  },
+  {
+    "canonicalCode": "fasting_insulin",
+    "title": "Fasting Insulin",
+    "modality": "blood",
+    "category": "metabolic",
+    "preferredUnit": "uIU/mL",
+    "loincCode": "27873-9",
+    "aliases": [
+      "insulin",
+      "fasting insulin",
+      "insulin fasting"
+    ],
+    "refRange": {
+      "low": 2.6,
+      "high": 24.9
+    },
+    "longevityOptimal": {
+      "high": 5
+    }
+  },
+  {
+    "canonicalCode": "hba1c",
+    "title": "HbA1c",
+    "modality": "blood",
+    "category": "metabolic",
+    "preferredUnit": "%",
+    "alternateUnits": [
+      "mmol/mol"
+    ],
+    "loincCode": "4548-4",
+    "aliases": [
+      "hemoglobin a1c",
+      "a1c",
+      "hba1c",
+      "glycated hemoglobin"
+    ],
+    "refRange": {
+      "high": 5.7
+    },
+    "longevityOptimal": {
+      "high": 5.3
+    },
+    "notes": "Some labs report HbA1c in IFCC mmol/mol instead of percent. Preserve the reported unit or convert explicitly."
+  },
+  {
+    "canonicalCode": "homa_ir",
+    "title": "HOMA-IR",
+    "modality": "blood",
+    "category": "metabolic",
+    "preferredUnit": "ratio",
+    "aliases": [
+      "homa-ir",
+      "homa ir",
+      "insulin resistance"
+    ],
+    "refRange": {
+      "high": 1.4
+    },
+    "longevityOptimal": {
+      "high": 1
+    },
+    "notes": "HOMA-IR is calculated rather than directly measured. Preserve the source formula context when available."
+  },
+  {
+    "canonicalCode": "inflammation_crp",
+    "title": "hs-CRP",
+    "modality": "blood",
+    "category": "inflammatory",
+    "preferredUnit": "mg/L",
+    "loincCode": "30522-7",
+    "aliases": [
+      "crp",
+      "c-reactive protein",
+      "hs-crp",
+      "high sensitivity crp",
+      "c-reactive protein, cardiac",
+      "inflammation score"
+    ],
+    "refRange": {
+      "high": 3
+    },
+    "longevityOptimal": {
+      "high": 1
+    },
+    "notes": "This is a direct blood measurement. Keep it distinct from methylation-derived DNAm CRP proxies."
+  },
+  {
+    "canonicalCode": "homocysteine",
+    "title": "Homocysteine",
+    "modality": "blood",
+    "category": "inflammatory",
+    "preferredUnit": "umol/L",
+    "loincCode": "2428-1",
+    "aliases": [
+      "homocysteine",
+      "hcy"
+    ],
+    "refRange": {
+      "low": 5,
+      "high": 15
+    },
+    "longevityOptimal": {
+      "high": 10
+    }
+  },
+  {
+    "canonicalCode": "il_6",
+    "title": "Interleukin-6",
+    "modality": "blood",
+    "category": "inflammatory",
+    "preferredUnit": "pg/mL",
+    "loincCode": "26881-3",
+    "aliases": [
+      "il-6",
+      "il 6",
+      "interleukin 6"
+    ],
+    "refRange": {
+      "high": 5
+    },
+    "longevityOptimal": {
+      "high": 1.8
+    }
+  },
+  {
+    "canonicalCode": "fibrinogen",
+    "title": "Fibrinogen",
+    "modality": "blood",
+    "category": "inflammatory",
+    "preferredUnit": "mg/dL",
+    "loincCode": "3255-7",
+    "aliases": [
+      "fibrinogen"
+    ],
+    "refRange": {
+      "low": 200,
+      "high": 400
+    },
+    "longevityOptimal": {
+      "low": 200,
+      "high": 300
+    }
+  },
+  {
+    "canonicalCode": "testosterone_total",
+    "title": "Total Testosterone",
+    "modality": "blood",
+    "category": "hormone",
+    "preferredUnit": "ng/dL",
+    "loincCode": "2986-8",
+    "aliases": [
+      "testosterone",
+      "total testosterone",
+      "testosterone total",
+      "testosterone, total"
+    ],
+    "refRange": {
+      "text": "M: 264-916; F: 15-70"
+    }
+  },
+  {
+    "canonicalCode": "free_testosterone",
+    "title": "Free Testosterone",
+    "modality": "blood",
+    "category": "hormone",
+    "preferredUnit": "pg/mL",
+    "loincCode": "2991-8",
+    "aliases": [
+      "free testosterone",
+      "free t",
+      "testosterone, free"
+    ],
+    "refRange": {
+      "text": "M: 9.3-26.5; F: 0.6-3.8"
+    }
+  },
+  {
+    "canonicalCode": "dhea_s",
+    "title": "DHEA-S",
+    "modality": "blood",
+    "category": "hormone",
+    "preferredUnit": "ug/dL",
+    "loincCode": "2191-5",
+    "aliases": [
+      "dhea-s",
+      "dhea sulfate",
+      "dehydroepiandrosterone sulfate"
+    ],
+    "refRange": {
+      "text": "M: 80-560; F: 35-430"
+    }
+  },
+  {
+    "canonicalCode": "cortisol_am",
+    "title": "Cortisol (AM)",
+    "modality": "blood",
+    "category": "hormone",
+    "preferredUnit": "ug/dL",
+    "loincCode": "2143-6",
+    "aliases": [
+      "cortisol",
+      "am cortisol",
+      "morning cortisol",
+      "cortisol am"
+    ],
+    "refRange": {
+      "low": 6.2,
+      "high": 19.4
+    }
+  },
+  {
+    "canonicalCode": "igf_1",
+    "title": "IGF-1",
+    "modality": "blood",
+    "category": "hormone",
+    "preferredUnit": "ng/mL",
+    "loincCode": "2484-4",
+    "aliases": [
+      "igf-1",
+      "igf 1",
+      "insulin-like growth factor"
+    ],
+    "refRange": {
+      "text": "Age-dependent"
+    }
+  },
+  {
+    "canonicalCode": "tsh",
+    "title": "TSH",
+    "modality": "blood",
+    "category": "thyroid",
+    "preferredUnit": "uIU/mL",
+    "loincCode": "3016-3",
+    "aliases": [
+      "tsh",
+      "thyroid stimulating hormone",
+      "thyrotropin"
+    ],
+    "refRange": {
+      "low": 0.45,
+      "high": 4.5
+    },
+    "longevityOptimal": {
+      "low": 1,
+      "high": 2
+    }
+  },
+  {
+    "canonicalCode": "vitamin_d",
+    "title": "Vitamin D (25-OH)",
+    "modality": "blood",
+    "category": "nutrient",
+    "preferredUnit": "ng/mL",
+    "loincCode": "62292-8",
+    "aliases": [
+      "vitamin d",
+      "25-hydroxy vitamin d",
+      "25-oh-d",
+      "vitamin d, 25-hydroxy",
+      "vitamin d, 25-oh, total"
+    ],
+    "refRange": {
+      "low": 30,
+      "high": 100
+    },
+    "longevityOptimal": {
+      "low": 50,
+      "high": 80
+    }
+  },
+  {
+    "canonicalCode": "vitamin_b12",
+    "title": "Vitamin B12",
+    "modality": "blood",
+    "category": "nutrient",
+    "preferredUnit": "pg/mL",
+    "loincCode": "2132-9",
+    "aliases": [
+      "b12",
+      "vitamin b12",
+      "vitamin b-12",
+      "cobalamin"
+    ],
+    "refRange": {
+      "low": 232,
+      "high": 1245
+    },
+    "longevityOptimal": {
+      "low": 500
+    }
+  },
+  {
+    "canonicalCode": "omega_3_index",
+    "title": "Omega-3 Index",
+    "modality": "blood",
+    "category": "nutrient",
+    "preferredUnit": "%",
+    "loincCode": "88998-0",
+    "aliases": [
+      "omega-3 index",
+      "omega 3 index",
+      "epa+dha index",
+      "omegacheck"
+    ],
+    "refRange": {
+      "low": 4
+    },
+    "longevityOptimal": {
+      "low": 8
+    }
+  },
+  {
+    "canonicalCode": "wearable_hrv_sleep_window",
+    "title": "Recovery Capacity (RMSSD)",
+    "modality": "wearable",
+    "category": "wearable_recovery",
+    "preferredUnit": "ms",
+    "aliases": [
+      "hrv",
+      "average hrv",
+      "average_hrv",
+      "nighttime hrv",
+      "rmssd",
+      "hrv_rmssd_milli",
+      "hrvvalue"
+    ],
+    "notes": "RMSSD and SDNN are not interchangeable. Use this code for sleep-window RMSSD-style wearable HRV only."
+  },
+  {
+    "canonicalCode": "resting_heart_rate",
+    "title": "Resting Heart Rate",
+    "modality": "wearable",
+    "category": "wearable_recovery",
+    "preferredUnit": "bpm",
+    "aliases": [
+      "rhr",
+      "resting heart rate",
+      "restingheartrateinbeatsperminute",
+      "restingheartrate"
+    ]
+  },
+  {
+    "canonicalCode": "wearable_hrv_sdnn",
+    "title": "HRV (SDNN)",
+    "modality": "wearable",
+    "category": "wearable_recovery",
+    "preferredUnit": "ms",
+    "aliases": [
+      "sdnn",
+      "heartratevariabilitysdnn",
+      "hkquantitytypeidentifierheartratevariabilitysdnn"
+    ],
+    "notes": "Apple Watch HealthKit exports SDNN rather than RMSSD. Keep this code separate from sleep-window RMSSD HRV."
+  },
+  {
+    "canonicalCode": "wearable_spo2",
+    "title": "Blood Oxygen (SpO2)",
+    "modality": "wearable",
+    "category": "wearable_recovery",
+    "preferredUnit": "%",
+    "aliases": [
+      "spo2",
+      "spo2_percentage",
+      "spo2 percentage",
+      "oxygen saturation",
+      "oxygensaturation"
+    ]
+  },
+  {
+    "canonicalCode": "wearable_vo2max_estimate",
+    "title": "VO2max Estimate",
+    "modality": "wearable",
+    "category": "fitness",
+    "preferredUnit": "mL/min/kg",
+    "aliases": [
+      "vo2max",
+      "vo2 max",
+      "estimated vo2max",
+      "cardio fitness",
+      "hkquantitytypeidentifiervo2max"
+    ],
+    "notes": "Wearable VO2max is an estimate. Keep it separate from lab-measured VO2max."
   }
 ]

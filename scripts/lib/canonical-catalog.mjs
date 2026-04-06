@@ -9,10 +9,22 @@ function normalizeCatalogKey(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function getLookupKeys(item) {
+  return [item.canonicalCode, item.title, ...item.aliases].map(normalizeCatalogKey).filter(Boolean);
+}
+
+const lookupKeyToCode = new Map();
+for (const item of canonicalCatalog) {
+  for (const lookupKey of getLookupKeys(item)) {
+    const existingCode = lookupKeyToCode.get(lookupKey);
+    if (existingCode && existingCode !== item.canonicalCode) {
+      throw new Error(`Canonical lookup key "${lookupKey}" is ambiguous between ${existingCode} and ${item.canonicalCode}.`);
+    }
+
+    lookupKeyToCode.set(lookupKey, item.canonicalCode);
+  }
+}
+
 export function resolveCanonicalCodeForName(value) {
-  const normalizedName = normalizeCatalogKey(value);
-  const match = canonicalCatalog.find((item) =>
-    item.aliases.some((alias) => normalizeCatalogKey(alias) === normalizedName),
-  );
-  return match?.canonicalCode;
+  return lookupKeyToCode.get(normalizeCatalogKey(value));
 }

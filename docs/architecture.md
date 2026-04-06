@@ -32,7 +32,7 @@ Current non-goals:
 1. User opens `/`.
 2. Server component resolves the active repository, which defaults to file storage and can switch to Postgres through environment configuration, then loads patient `pt_001`.
 3. User submits source metrics in the upload workbench.
-4. `POST /api/intake/report` normalizes entries into canonical measurements.
+4. `POST /api/intake/report` normalizes source aliases plus the first safe alternate-unit cases into canonical measurements.
 5. The route persists a report-ingestion record and prepends new measurements and a timeline event to the patient record.
 6. `POST /api/intake/document` stores a source file, fingerprints it, classifies it, and extracts supported ZIP children into child source-document records.
 7. The document path creates parser tasks for the parent document and any extracted children.
@@ -50,4 +50,5 @@ Current non-goals:
 - add field-level review queues for unmapped metrics
 - separate source ingestion from clinician-facing projections
 - support promotion for accepted text/categorical decisions
+- broaden unit-aware normalization beyond the current safe alternate-unit rules
 - support vendor-specific and multimodal PDF parsing only after review semantics exist

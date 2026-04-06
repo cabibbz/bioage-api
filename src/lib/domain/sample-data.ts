@@ -29,6 +29,7 @@ export const samplePatientRecord: PatientRecord = {
       sourceVendor: "TruDiagnostic",
       observedAt: "2026-03-22T10:00:00.000Z",
       value: 0.89,
+      unit: "biological years/year",
       interpretation: "Below reference pace. Good candidate for intervention-linked tracking.",
       evidenceStatus: "improving",
       confidenceLabel: "high",
@@ -36,7 +37,7 @@ export const samplePatientRecord: PatientRecord = {
     },
     {
       id: "m_crp_1",
-      title: "Inflammation Signal",
+      title: "hs-CRP",
       canonicalCode: "inflammation_crp",
       modality: "blood",
       sourceVendor: "Quest panel via Terra parser",
@@ -50,7 +51,7 @@ export const samplePatientRecord: PatientRecord = {
     },
     {
       id: "m_hrv_1",
-      title: "Recovery Capacity",
+      title: "Recovery Capacity (RMSSD)",
       canonicalCode: "wearable_hrv_sleep_window",
       modality: "wearable",
       sourceVendor: "Oura",
@@ -94,4 +95,3 @@ export const samplePatientRecord: PatientRecord = {
     },
   ],
 };
-

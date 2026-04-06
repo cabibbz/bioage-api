@@ -1,4 +1,12 @@
-export type MeasurementModality = "epigenetic" | "blood" | "wearable" | "clinical";
+export type MeasurementModality =
+  | "epigenetic"
+  | "blood"
+  | "wearable"
+  | "clinical"
+  | "stool"
+  | "urine"
+  | "saliva"
+  | "genetic";
 
 export type EvidenceStatus = "stable" | "improving" | "watch" | "conflicted";
 
@@ -36,4 +44,3 @@ export type PatientRecord = {
   measurements: CanonicalMeasurement[];
   timeline: TimelineEvent[];
 };
-

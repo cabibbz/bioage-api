@@ -7,7 +7,7 @@ Clinic-facing preventive-health software that turns uploaded reports and wearabl
 - Next.js app scaffold
 - clinician dashboard shell
 - seeded patient timeline
-- vendor metric normalization catalog
+- Tier 1 longevity normalization catalog with category, LOINC, range, and alias metadata
 - report intake API stub
 - upload workbench for testing mappings
 - parser-task queue with deterministic summaries

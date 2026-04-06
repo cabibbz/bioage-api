@@ -89,9 +89,9 @@ export async function POST(request: Request) {
         totalTimelineEvents: persisted.patient.timeline.length,
       },
       nextActions: [
-        "Persist the source document binary and checksum for provenance.",
-        "Add parser confidence scores at the field level.",
-        "Introduce clinician review queues for newly unmapped source metrics.",
+        "Extend the canonical measurement model for bounded, categorical, and text-valued results.",
+        "Expand unit-aware normalization beyond the first safe alternate-unit rules.",
+        "Keep growing the review-first mapping catalog with vendor-specific aliases, units, and LOINC coverage.",
       ],
     });
   } catch (error) {
