@@ -11,7 +11,7 @@ const demoPayload = {
   entries: [
     { name: "Index biological age", value: 45.1, unit: "years" },
     { name: "OMICm FitAge", value: 43.4, unit: "years" },
-    { name: "APOE Genotype", textValue: "APOE e4/e3 genotype" },
+    { name: "APOE Genotype", textValue: "rs429358 T/C, rs7412 C/C" },
     { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
     { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
     { name: "LDL-C", value: 2.1, unit: "mmol/L" },

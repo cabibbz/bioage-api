@@ -720,7 +720,7 @@ function createPromotionNormalizationFhirBundle() {
             code: {
               text: "APOE Genotype",
             },
-            valueString: "APOE 4/3",
+            valueString: "rs429358 T/C, rs7412 C/C",
             effectiveDateTime: "2026-04-05T10:00:00.000Z",
           },
         },
@@ -1113,7 +1113,7 @@ const scenarios = [
         entries: [
           { name: "Index biological age", value: 45.2, unit: "years" },
           { name: "OMICm FitAge", value: 42.7, unit: "years" },
-          { name: "APOE Genotype", textValue: "APOE e4/e3 genotype" },
+          { name: "APOE Genotype", textValue: "rs429358 T/C, rs7412 C/C" },
           { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
@@ -1154,7 +1154,7 @@ const scenarios = [
       assert.ok(apoeMeasurement);
       assert.equal(apoeMeasurement.textValue, "e3/e4");
       assert.equal(apoeMeasurement.unit, undefined);
-      assert.ok(apoeMeasurement.note.includes('from "APOE e4/e3 genotype" to "e3/e4"'));
+      assert.ok(apoeMeasurement.note.includes('from "rs429358 T/C, rs7412 C/C" to "e3/e4"'));
       const mthfrMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "mthfr_status");
       assert.ok(mthfrMeasurement);
       assert.equal(mthfrMeasurement.textValue, "C677T heterozygous");
@@ -1231,6 +1231,51 @@ const scenarios = [
       );
       assert.ok(persistedMthfrMeasurement);
       assert.ok(persistedMthfrMeasurement.interpretation.includes("categorical result C677T heterozygous"));
+    },
+  },
+  {
+    name: "report-intake-normalizes-negative-mthfr-wording",
+    covers: ["POST /api/intake/report"],
+    coverageType: "success",
+    async run() {
+      const before = await getPatientSnapshot();
+      const report = await postJson("/api/intake/report", {
+        patientId,
+        vendor: "Functional genetics panel",
+        observedAt: "2026-04-04T10:00:00.000Z",
+        entries: [{ name: "MTHFR Mutation", textValue: "C677T negative; A1298C negative" }],
+      });
+
+      assert.equal(report.normalizationSummary.totalEntries, 1);
+      assert.equal(report.normalizationSummary.mappedEntries, 1);
+      assert.equal(report.normalizationSummary.unmappedEntries, 0);
+      assert.equal(report.measurements.length, 1);
+      assert.deepEqual(report.unmappedEntries, []);
+
+      const measurement = report.measurements[0];
+      assert.equal(measurement.canonicalCode, "mthfr_status");
+      assert.equal(measurement.textValue, "no common variant detected");
+      assert.equal(measurement.unit, undefined);
+      assert.ok(
+        measurement.note.includes(
+          'from "C677T negative; A1298C negative" to "no common variant detected"',
+        ),
+      );
+
+      const after = await getPatientSnapshot();
+      assertCountDelta(countSnapshot(before), countSnapshot(after), {
+        measurements: 1,
+        reportIngestions: 1,
+        timeline: 1,
+      });
+
+      const persistedMeasurement = after.patient.measurements.find(
+        (candidate) =>
+          candidate.canonicalCode === "mthfr_status" && candidate.observedAt === "2026-04-04T10:00:00.000Z",
+      );
+      assert.ok(persistedMeasurement);
+      assert.equal(persistedMeasurement.textValue, "no common variant detected");
+      assert.ok(persistedMeasurement.interpretation.includes("categorical result no common variant detected"));
     },
   },
   {

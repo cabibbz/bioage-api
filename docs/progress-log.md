@@ -27,6 +27,7 @@
 - added the first vendor-style categorical value normalization rules so ApoE and MTHFR report wording now canonicalizes into stable text values while preserving the original notation in notes
 - widened those genetic value rules so MTHFR positive copy-count phrasing now normalizes into stable heterozygous/homozygous categorical values too
 - made reviewed parser-candidate promotion reuse the same unit-conversion and text-canonicalization rules as direct report intake, including canonicalized ApoE text and mmol/L glucose conversion on promotion
+- widened ApoE normalization again so rs429358/rs7412 vendor SNP phrasing now resolves into canonical genotypes, and added dual-negative MTHFR wording so paired negative results normalize into `no common variant detected`
 - added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
 - added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text
