@@ -25,6 +25,7 @@
 - made `verify:meta` compare git status before and after the run so verification now fails if it mutates the worktree relative to its starting state
 - upgraded the browser suite so dashboard pills, clinician-prep counts, and signal-board titles are checked against the live patient API snapshot after each workflow step
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
+- strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario
 
 ### 2026-04-05
 

@@ -908,6 +908,7 @@ const scenarios = [
   {
     name: "patient-route-contract",
     covers: ["GET /api/patients/[patientId]"],
+    coverageType: "mixed",
     async run() {
       const snapshot = await getPatientSnapshot();
       assert.equal(snapshot.patient.id, patientId);
@@ -926,6 +927,7 @@ const scenarios = [
   {
     name: "report-intake-validation",
     covers: ["POST /api/intake/report"],
+    coverageType: "error",
     async run() {
       const invalidJson = await postRawJson("/api/intake/report", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -944,6 +946,7 @@ const scenarios = [
   {
     name: "report-intake-state-transition",
     covers: ["POST /api/intake/report"],
+    coverageType: "success",
     async run() {
       const before = await getPatientSnapshot();
       const report = await postJson("/api/intake/report", {
@@ -982,6 +985,7 @@ const scenarios = [
   {
     name: "report-intake-missing-patient",
     covers: ["POST /api/intake/report"],
+    coverageType: "error",
     async run() {
       const missingPatient = await postJson(
         "/api/intake/report",
@@ -1000,6 +1004,7 @@ const scenarios = [
   {
     name: "intervention-validation",
     covers: ["POST /api/intake/intervention"],
+    coverageType: "error",
     async run() {
       const invalidJson = await postRawJson("/api/intake/intervention", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -1011,6 +1016,7 @@ const scenarios = [
   {
     name: "intervention-state-transition",
     covers: ["POST /api/intake/intervention"],
+    coverageType: "success",
     async run() {
       const before = await getPatientSnapshot();
       const intervention = await postJson("/api/intake/intervention", {
@@ -1033,6 +1039,7 @@ const scenarios = [
   {
     name: "intervention-missing-patient",
     covers: ["POST /api/intake/intervention"],
+    coverageType: "error",
     async run() {
       const missingPatient = await postJson(
         "/api/intake/intervention",
@@ -1051,6 +1058,7 @@ const scenarios = [
   {
     name: "document-validation",
     covers: ["POST /api/intake/document"],
+    coverageType: "error",
     async run() {
       const missingFields = await postMultipart(
         "/api/intake/document",
@@ -1066,6 +1074,7 @@ const scenarios = [
   {
     name: "document-missing-patient",
     covers: ["POST /api/intake/document"],
+    coverageType: "error",
     async run() {
       const missingPatient = await postMultipart(
         "/api/intake/document",
@@ -1083,6 +1092,7 @@ const scenarios = [
   {
     name: "document-parse-failed-json",
     covers: ["POST /api/intake/document"],
+    coverageType: "success",
     async run() {
       const before = await getPatientSnapshot();
       const upload = await postMultipart("/api/intake/document", {
@@ -1115,6 +1125,7 @@ const scenarios = [
   ...documentScenarios.map((fixture) => ({
     name: `document-${fixture.name}`,
     covers: ["POST /api/intake/document"],
+    coverageType: "success",
     async run() {
       const before = await getPatientSnapshot();
       const upload = await uploadDocumentFixture(fixture);
@@ -1181,6 +1192,7 @@ const scenarios = [
   {
     name: "review-validation-and-errors",
     covers: ["POST /api/review/decision"],
+    coverageType: "error",
     async run() {
       const invalidJson = await postRawJson("/api/review/decision", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -1228,6 +1240,7 @@ const scenarios = [
   {
     name: "review-decision-create-and-update",
     covers: ["POST /api/review/decision"],
+    coverageType: "mixed",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
@@ -1291,6 +1304,7 @@ const scenarios = [
   {
     name: "promotion-validation-and-idempotence",
     covers: ["POST /api/review/promote"],
+    coverageType: "mixed",
     async run() {
       const invalidJson = await postRawJson("/api/review/promote", "{", 400);
       assert.equal(invalidJson.error, "Request body must be valid JSON.");
@@ -1352,6 +1366,7 @@ const scenarios = [
   {
     name: "promotion-rejects-non-accepted-decisions",
     covers: ["POST /api/review/promote"],
+    coverageType: "error",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
@@ -1383,6 +1398,7 @@ const scenarios = [
   {
     name: "promotion-rejects-accepted-decisions-without-mapping",
     covers: ["POST /api/review/promote"],
+    coverageType: "error",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
@@ -1414,6 +1430,7 @@ const scenarios = [
   {
     name: "promotion-rejects-non-numeric-candidates",
     covers: ["POST /api/review/promote"],
+    coverageType: "error",
     async run() {
       const upload = await postMultipart("/api/intake/document", {
         patientId,
@@ -1459,6 +1476,10 @@ async function assertApiRouteCoverage() {
       Array.isArray(scenario.covers) && scenario.covers.length > 0,
       `Scenario ${scenario.name} must declare the route methods it covers.`,
     );
+    assert.ok(
+      ["success", "error", "mixed"].includes(scenario.coverageType),
+      `Scenario ${scenario.name} must declare a valid coverageType.`,
+    );
   });
 
   const coveredRouteMethods = [...new Set(scenarios.flatMap((scenario) => scenario.covers))].sort();
@@ -1468,6 +1489,27 @@ async function assertApiRouteCoverage() {
     discoveredRouteMethods,
     "Functional scenarios must claim every exported API route method under app/api.",
   );
+
+  const routeCoverageKinds = new Map();
+  scenarios.forEach((scenario) => {
+    scenario.covers.forEach((routeMethod) => {
+      const kinds = routeCoverageKinds.get(routeMethod) ?? new Set();
+      kinds.add(scenario.coverageType);
+      routeCoverageKinds.set(routeMethod, kinds);
+    });
+  });
+
+  discoveredRouteMethods.forEach((routeMethod) => {
+    const kinds = routeCoverageKinds.get(routeMethod) ?? new Set();
+    assert.ok(
+      kinds.has("success") || kinds.has("mixed"),
+      `Functional scenarios must include a success path for ${routeMethod}.`,
+    );
+    assert.ok(
+      kinds.has("error") || kinds.has("mixed"),
+      `Functional scenarios must include an error path for ${routeMethod}.`,
+    );
+  });
 }
 
 async function main() {
