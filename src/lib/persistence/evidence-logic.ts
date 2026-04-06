@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PatientRecord } from "@/src/lib/domain/types";
-import { formatMeasurementValue } from "@/src/lib/domain/measurements";
+import { formatMeasurementValue, getMeasurementValueKind } from "@/src/lib/domain/measurements";
 import { NormalizedMeasurement, UnmappedEntry } from "@/src/lib/normalization/normalize";
 import {
   ParsedMeasurementCandidate,
@@ -43,6 +43,15 @@ export function summarizeMeasurement(measurement: NormalizedMeasurement) {
 }
 
 export function buildInterpretation(measurement: NormalizedMeasurement) {
+  if (measurement.value === undefined) {
+    const renderedValue = formatMeasurementValue(measurement);
+    if (getMeasurementValueKind(measurement) === "bounded") {
+      return `Structured preventive-health measurement preserved as the reported bounded result ${renderedValue}. Keep the operator and source threshold context before comparing trends or intervention effects.`;
+    }
+
+    return `Structured preventive-health measurement preserved as the reported text or categorical result ${renderedValue}. Keep the original wording and provenance explicit before using it in longitudinal comparison.`;
+  }
+
   if (measurement.modality === "epigenetic") {
     return "Epigenetic metric normalized from vendor report. Preserve source methodology and review against prior timepoints.";
   }

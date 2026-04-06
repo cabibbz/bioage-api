@@ -233,6 +233,14 @@ textarea {
   font-weight: 600;
 }
 
+.signal-sidecar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .signal-foot {
   margin-top: 16px;
   display: flex;

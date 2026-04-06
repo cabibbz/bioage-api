@@ -23,6 +23,20 @@ function roundTo(value: number, decimals: number) {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
+function buildConvertedUnitResult(input: {
+  definition: CanonicalDefinition;
+  value: number;
+  reportedUnit: string;
+  convertedValue: number;
+  note: string;
+}) {
+  return {
+    value: input.convertedValue,
+    unit: input.definition.preferredUnit,
+    note: `Converted reported ${input.definition.title} from ${input.value} ${input.reportedUnit} to ${input.convertedValue} ${input.definition.preferredUnit} ${input.note}`,
+  } satisfies UnitNormalizationResult;
+}
+
 function describeKnownUnits(definition: CanonicalDefinition) {
   const alternateUnits = definition.alternateUnits ?? [];
   if (alternateUnits.length === 0) {
@@ -53,11 +67,13 @@ export function resolveMeasurementUnit(
 
   if (definition.canonicalCode === "hba1c" && matchesUnit(reportedUnit, "mmol/mol")) {
     const convertedValue = roundTo(value * 0.09148 + 2.152, 2);
-    return {
-      value: convertedValue,
-      unit: definition.preferredUnit,
-      note: `Converted reported HbA1c from ${value} ${reportedUnit} to ${convertedValue} ${definition.preferredUnit} using the NGSP/IFCC master equation.`,
-    };
+    return buildConvertedUnitResult({
+      definition,
+      value,
+      reportedUnit,
+      convertedValue,
+      note: "using the NGSP/IFCC master equation.",
+    });
   }
 
   if (definition.canonicalCode === "lp_a" && matchesUnit(reportedUnit, "mg/dL")) {
@@ -66,6 +82,53 @@ export function resolveMeasurementUnit(
       unit: reportedUnit,
       note: `Preserved reported ${reportedUnit} without conversion because Lp(a) mass and molar units are not directly interchangeable.`,
     };
+  }
+
+  if (definition.canonicalCode === "fasting_glucose" && matchesUnit(reportedUnit, "mmol/L")) {
+    const convertedValue = roundTo(value / 0.0555, 1);
+    return buildConvertedUnitResult({
+      definition,
+      value,
+      reportedUnit,
+      convertedValue,
+      note: "using the standard glucose factor 0.0555 mmol/L per mg/dL.",
+    });
+  }
+
+  if (
+    ["ldl_cholesterol", "hdl_cholesterol"].includes(definition.canonicalCode) &&
+    matchesUnit(reportedUnit, "mmol/L")
+  ) {
+    const convertedValue = roundTo(value / 0.0259, 1);
+    return buildConvertedUnitResult({
+      definition,
+      value,
+      reportedUnit,
+      convertedValue,
+      note: "using the standard cholesterol factor 0.0259 mmol/L per mg/dL.",
+    });
+  }
+
+  if (definition.canonicalCode === "triglycerides" && matchesUnit(reportedUnit, "mmol/L")) {
+    const convertedValue = roundTo(value / 0.0113, 1);
+    return buildConvertedUnitResult({
+      definition,
+      value,
+      reportedUnit,
+      convertedValue,
+      note: "using the standard triglyceride factor 0.0113 mmol/L per mg/dL.",
+    });
+  }
+
+  if (definition.canonicalCode === "vitamin_d" && matchesUnit(reportedUnit, "nmol/L")) {
+    const convertedValue = roundTo(value / 2.5, 1);
+    return buildConvertedUnitResult({
+      definition,
+      value,
+      reportedUnit,
+      convertedValue,
+      note: "using the standard 25-hydroxy vitamin D factor 2.5 nmol/L per ng/mL.",
+    });
   }
 
   const knownUnits = [definition.preferredUnit, ...(definition.alternateUnits ?? [])];

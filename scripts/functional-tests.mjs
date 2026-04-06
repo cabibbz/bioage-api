@@ -1072,21 +1072,22 @@ const scenarios = [
           { name: "Index biological age", value: 45.2, unit: "years" },
           { name: "OMICm FitAge", value: 42.7, unit: "years" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
-          { name: "LDL-C", value: 81, unit: "mg/dL" },
+          { name: "LDL-C", value: 2.1, unit: "mmol/L" },
+          { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
           { name: "CRP", textValue: "<0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
-          { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
+          { name: "Vitamin D, 25-Hydroxy", value: 135, unit: "nmol/L" },
           { name: "Mystery Marker", value: 12.3, unit: "arb" },
         ],
       });
 
-      assert.equal(report.normalizationSummary.totalEntries, 9);
+      assert.equal(report.normalizationSummary.totalEntries, 10);
       assert.equal(report.normalizationSummary.mappedEntries, report.measurements.length);
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        9,
+        10,
       );
       assert.deepEqual(
         report.measurements.map((measurement) => measurement.canonicalCode).sort(),
@@ -1094,6 +1095,7 @@ const scenarios = [
           "apob",
           "epigenetic_biological_age",
           "epigenetic_fitness_age",
+          "fasting_glucose",
           "hba1c",
           "inflammation_crp",
           "ldl_cholesterol",
@@ -1110,16 +1112,35 @@ const scenarios = [
       assert.equal(crpMeasurement.value, undefined);
       assert.equal(crpMeasurement.unit, "mg/L");
       assert.ok(crpMeasurement.note.includes("Preserved reported text/bounded result"));
+      const glucoseMeasurement = report.measurements.find(
+        (measurement) => measurement.canonicalCode === "fasting_glucose",
+      );
+      assert.ok(glucoseMeasurement);
+      assert.equal(glucoseMeasurement.value, 97.3);
+      assert.equal(glucoseMeasurement.unit, "mg/dL");
+      assert.ok(glucoseMeasurement.note.includes("standard glucose factor 0.0555"));
       const hba1cMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "hba1c");
       assert.ok(hba1cMeasurement);
       assert.equal(hba1cMeasurement.value, 5.26);
       assert.equal(hba1cMeasurement.unit, "%");
       assert.ok(hba1cMeasurement.note.includes("NGSP/IFCC master equation"));
+      const ldlMeasurement = report.measurements.find(
+        (measurement) => measurement.canonicalCode === "ldl_cholesterol",
+      );
+      assert.ok(ldlMeasurement);
+      assert.equal(ldlMeasurement.value, 81.1);
+      assert.equal(ldlMeasurement.unit, "mg/dL");
+      assert.ok(ldlMeasurement.note.includes("standard cholesterol factor 0.0259"));
       const lpAMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "lp_a");
       assert.ok(lpAMeasurement);
       assert.equal(lpAMeasurement.value, 28);
       assert.equal(lpAMeasurement.unit, "mg/dL");
       assert.ok(lpAMeasurement.note.includes("not directly interchangeable"));
+      const vitaminDMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "vitamin_d");
+      assert.ok(vitaminDMeasurement);
+      assert.equal(vitaminDMeasurement.value, 54);
+      assert.equal(vitaminDMeasurement.unit, "ng/mL");
+      assert.ok(vitaminDMeasurement.note.includes("factor 2.5"));
 
       const after = await getPatientSnapshot();
       assertCountDelta(countSnapshot(before), countSnapshot(after), {
@@ -1132,6 +1153,12 @@ const scenarios = [
       assert.ok(persisted);
       assert.equal(persisted.vendor, "Functional longevity panel");
       assert.equal(report.patientSnapshot.totalMeasurements, after.patient.measurements.length);
+      const persistedCrpMeasurement = after.patient.measurements.find(
+        (measurement) =>
+          measurement.canonicalCode === "inflammation_crp" && measurement.observedAt === "2026-04-04T09:00:00.000Z",
+      );
+      assert.ok(persistedCrpMeasurement);
+      assert.ok(persistedCrpMeasurement.interpretation.includes("bounded result <0.3 mg/L"));
     },
   },
   {

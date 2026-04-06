@@ -1,4 +1,4 @@
-import { formatMeasurementValue } from "@/src/lib/domain/measurements";
+import { formatMeasurementValue, getMeasurementValueKindLabel } from "@/src/lib/domain/measurements";
 import { CanonicalMeasurement } from "@/src/lib/domain/types";
 
 type SignalCardProps = {
@@ -10,6 +10,7 @@ export function SignalCard({ measurement }: SignalCardProps) {
     measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch"
       ? "warn"
       : "ok";
+  const valueKindLabel = getMeasurementValueKindLabel(measurement);
 
   return (
     <article className="signal-card">
@@ -25,7 +26,10 @@ export function SignalCard({ measurement }: SignalCardProps) {
 
       <div className="signal-value-row">
         <div className="signal-value">{formatMeasurementValue(measurement)}</div>
-        {measurement.deltaLabel ? <div className="signal-delta">{measurement.deltaLabel}</div> : null}
+        <div className="signal-sidecar">
+          {valueKindLabel ? <span className="pill">{valueKindLabel}</span> : null}
+          {measurement.deltaLabel ? <div className="signal-delta">{measurement.deltaLabel}</div> : null}
+        </div>
       </div>
 
       <div className="signal-foot">

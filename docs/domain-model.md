@@ -27,7 +27,7 @@ The canonical catalog now also carries:
 Normalization currently uses that catalog to:
 
 - resolve aliases through a validated shared lookup contract
-- convert the first safe alternate-unit case set such as HbA1c IFCC mmol/mol into the preferred unit
+- convert a small safe alternate-unit set such as HbA1c IFCC mmol/mol, glucose mmol/L, cholesterol mmol/L, and vitamin D nmol/L into preferred units
 - preserve explicitly non-convertible alternates such as Lp(a) mg/dL with a flagged note instead of silent conversion
 
 ## Persistence Shape
@@ -119,6 +119,7 @@ The current interpretation layer is intentionally conservative.
 - parser candidates remain separate from canonical measurements until human review exists
 - review decisions remain separate from canonical measurements until explicit promotion occurs
 - promoted measurements can now preserve either numeric values or reviewed text/bounded values
+- bounded and text-valued report measurements now keep their qualifier or wording explicit in clinician-facing interpretation
 - promotion records remain separate from the measurement row so audit trails survive later edits
 
 The system should prefer:

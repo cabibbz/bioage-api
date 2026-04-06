@@ -2055,11 +2055,12 @@ async function main() {
           { name: "Index biological age", value: 45.1, unit: "years" },
           { name: "OMICm FitAge", value: 43.4, unit: "years" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
-          { name: "LDL-C", value: 81, unit: "mg/dL" },
+          { name: "LDL-C", value: 2.1, unit: "mmol/L" },
+          { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
           { name: "CRP", textValue: "<0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
-          { name: "Vitamin D, 25-Hydroxy", value: 54, unit: "ng/mL" },
+          { name: "Vitamin D, 25-Hydroxy", value: 135, unit: "nmol/L" },
           { name: "Unknown vendor score", value: 72 },
         ],
         null,
@@ -2073,11 +2074,17 @@ async function main() {
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
-    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 8' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 9' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "fasting_glucose"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"value": 97.3' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "inflammation_crp"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"textValue": "<0.3"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "hba1c"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"value": 5.26' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "ldl_cholesterol"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"value": 81.1' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "vitamin_d"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"value": 54' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "lp_a"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: "not directly interchangeable" }).waitFor();
     await refreshDashboard(page);

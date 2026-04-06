@@ -127,6 +127,9 @@
     "modality": "blood",
     "category": "lipid",
     "preferredUnit": "mg/dL",
+    "alternateUnits": [
+      "mmol/L"
+    ],
     "loincCode": "13457-7",
     "aliases": [
       "ldl",
@@ -148,6 +151,9 @@
     "modality": "blood",
     "category": "lipid",
     "preferredUnit": "mg/dL",
+    "alternateUnits": [
+      "mmol/L"
+    ],
     "loincCode": "2085-9",
     "aliases": [
       "hdl",
@@ -167,6 +173,9 @@
     "modality": "blood",
     "category": "lipid",
     "preferredUnit": "mg/dL",
+    "alternateUnits": [
+      "mmol/L"
+    ],
     "loincCode": "2571-8",
     "aliases": [
       "tg",
@@ -210,6 +219,9 @@
     "modality": "blood",
     "category": "metabolic",
     "preferredUnit": "mg/dL",
+    "alternateUnits": [
+      "mmol/L"
+    ],
     "loincCode": "1558-6",
     "aliases": [
       "glucose",
@@ -479,6 +491,9 @@
     "modality": "blood",
     "category": "nutrient",
     "preferredUnit": "ng/mL",
+    "alternateUnits": [
+      "nmol/L"
+    ],
     "loincCode": "62292-8",
     "aliases": [
       "vitamin d",
