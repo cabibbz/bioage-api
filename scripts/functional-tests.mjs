@@ -1071,7 +1071,8 @@ const scenarios = [
         entries: [
           { name: "Index biological age", value: 45.2, unit: "years" },
           { name: "OMICm FitAge", value: 42.7, unit: "years" },
-          { name: "APOE Genotype", textValue: "e3/e4" },
+          { name: "APOE Genotype", textValue: "APOE 4/3" },
+          { name: "MTHFR Mutation", textValue: "compound het c677t / a1298c" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
@@ -1083,12 +1084,12 @@ const scenarios = [
         ],
       });
 
-      assert.equal(report.normalizationSummary.totalEntries, 11);
+      assert.equal(report.normalizationSummary.totalEntries, 12);
       assert.equal(report.normalizationSummary.mappedEntries, report.measurements.length);
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        11,
+        12,
       );
       assert.deepEqual(
         report.measurements.map((measurement) => measurement.canonicalCode).sort(),
@@ -1102,6 +1103,7 @@ const scenarios = [
           "inflammation_crp",
           "ldl_cholesterol",
           "lp_a",
+          "mthfr_status",
           "vitamin_d",
         ].sort(),
       );
@@ -1110,7 +1112,16 @@ const scenarios = [
       assert.ok(apoeMeasurement);
       assert.equal(apoeMeasurement.textValue, "e3/e4");
       assert.equal(apoeMeasurement.unit, undefined);
-      assert.ok(apoeMeasurement.note.includes("exact allele notation"));
+      assert.ok(apoeMeasurement.note.includes('from "APOE 4/3" to "e3/e4"'));
+      const mthfrMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "mthfr_status");
+      assert.ok(mthfrMeasurement);
+      assert.equal(mthfrMeasurement.textValue, "compound heterozygous C677T/A1298C");
+      assert.equal(mthfrMeasurement.unit, undefined);
+      assert.ok(
+        mthfrMeasurement.note.includes(
+          'from "compound het c677t / a1298c" to "compound heterozygous C677T/A1298C"',
+        ),
+      );
       const crpMeasurement = report.measurements.find(
         (measurement) => measurement.canonicalCode === "inflammation_crp",
       );
@@ -1172,6 +1183,14 @@ const scenarios = [
       );
       assert.ok(persistedApoeMeasurement);
       assert.ok(persistedApoeMeasurement.interpretation.includes("categorical result e3/e4"));
+      const persistedMthfrMeasurement = after.patient.measurements.find(
+        (measurement) =>
+          measurement.canonicalCode === "mthfr_status" && measurement.observedAt === "2026-04-04T09:00:00.000Z",
+      );
+      assert.ok(persistedMthfrMeasurement);
+      assert.ok(
+        persistedMthfrMeasurement.interpretation.includes("categorical result compound heterozygous C677T/A1298C"),
+      );
     },
   },
   {

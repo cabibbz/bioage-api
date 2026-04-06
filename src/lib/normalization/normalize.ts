@@ -1,5 +1,6 @@
 import { CanonicalMeasurementValue, MeasurementModality } from "@/src/lib/domain/types";
 import { findCanonicalDefinitionByName, normalizeCatalogKey } from "@/src/lib/normalization/catalog";
+import { normalizeTextMeasurementValue } from "@/src/lib/normalization/text-values";
 import { resolveMeasurementUnit } from "@/src/lib/normalization/units";
 
 type NormalizeEntry = {
@@ -91,19 +92,21 @@ export function normalizeReportPayload(input: NormalizeInput): NormalizedReportP
       continue;
     }
 
+    const normalizedText = normalizeTextMeasurementValue(match, entry.textValue);
+
     measurements.push({
       canonicalCode: match.canonicalCode,
       title: match.title,
       modality: match.modality,
       sourceVendor: input.vendor,
       sourceField: entry.name,
-      textValue: entry.textValue,
+      textValue: normalizedText.textValue,
       unit: entry.unit,
       observedAt: input.observedAt,
       confidence: normalizeCatalogKey(match.aliases[0]) === normalizedName ? "high" : "moderate",
       note: [
         buildNormalizationReviewNote(match.modality),
-        "Preserved reported text/bounded result without numeric conversion.",
+        normalizedText.note ?? "Preserved reported text/bounded result without numeric conversion.",
         match.notes,
       ]
         .filter(Boolean)

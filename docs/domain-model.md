@@ -122,6 +122,7 @@ The current interpretation layer is intentionally conservative.
 - promoted measurements can now preserve either numeric values or reviewed text/bounded values
 - bounded and text-valued report measurements now keep their qualifier or wording explicit in clinician-facing interpretation
 - direct report intake now also carries first genetic categorical findings without pretending they are trendable lab values
+- the first vendor-specific categorical normalization rules now canonicalize ApoE and MTHFR wording while preserving the original notation in report-ingestion notes
 - promotion records remain separate from the measurement row so audit trails survive later edits
 
 The system should prefer:

@@ -82,6 +82,6 @@ To apply the schema plus seed into a target database from the repo, run `npm run
 
 1. Validate the Postgres backend against a live local database and keep the Postgres functional path green.
 2. Add object storage for source reports.
-3. Expand vendor-specific categorical mappings and nomenclature handling for direct report intake.
+3. Expand vendor-specific categorical value normalization beyond the first genotype notation rules.
 4. Add Terra wearable ingestion.
 5. Add one EHR / practice integration.
