@@ -935,6 +935,13 @@ const scenarios = [
       const missingFields = await postJson("/api/intake/report", { patientId }, 400);
       assert.equal(missingFields.error, "patientId and vendor are required.");
 
+      const blankFields = await postJson(
+        "/api/intake/report",
+        { patientId: "   ", vendor: "   ", entries: [] },
+        400,
+      );
+      assert.equal(blankFields.error, "patientId and vendor are required.");
+
       const invalidEntries = await postJson(
         "/api/intake/report",
         { patientId, vendor: "Functional", entries: "not-an-array" },
@@ -1011,6 +1018,18 @@ const scenarios = [
 
       const missingFields = await postJson("/api/intake/intervention", { patientId }, 400);
       assert.equal(missingFields.error, "patientId, title, detail, and occurredAt are required.");
+
+      const blankFields = await postJson(
+        "/api/intake/intervention",
+        {
+          patientId: "   ",
+          title: "   ",
+          detail: "   ",
+          occurredAt: "   ",
+        },
+        400,
+      );
+      assert.equal(blankFields.error, "patientId, title, detail, and occurredAt are required.");
     },
   },
   {
@@ -1069,6 +1088,17 @@ const scenarios = [
         400,
       );
       assert.equal(missingFields.error, "patientId, sourceSystem, and file are required.");
+
+      const blankFields = await postMultipart(
+        "/api/intake/document",
+        {
+          patientId: "   ",
+          sourceSystem: "   ",
+          file: new File([createTextFixture()], "functional-note.txt", { type: "text/plain" }),
+        },
+        400,
+      );
+      assert.equal(blankFields.error, "patientId, sourceSystem, and file are required.");
     },
   },
   {
@@ -1203,6 +1233,22 @@ const scenarios = [
         "patientId, parseTaskId, candidateId, action, and reviewerName are required.",
       );
 
+      const blankFields = await postJson(
+        "/api/review/decision",
+        {
+          patientId: "   ",
+          parseTaskId: "   ",
+          candidateId: "   ",
+          action: "accept",
+          reviewerName: "   ",
+        },
+        400,
+      );
+      assert.equal(
+        blankFields.error,
+        "patientId, parseTaskId, candidateId, action, and reviewerName are required.",
+      );
+
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
       const target = findReviewableCandidate(upload.parseTasks, () => true);
       assert.ok(target);
@@ -1311,6 +1357,16 @@ const scenarios = [
 
       const missingFields = await postJson("/api/review/promote", { patientId }, 400);
       assert.equal(missingFields.error, "patientId and reviewDecisionId are required.");
+
+      const blankFields = await postJson(
+        "/api/review/promote",
+        {
+          patientId: "   ",
+          reviewDecisionId: "   ",
+        },
+        400,
+      );
+      assert.equal(blankFields.error, "patientId and reviewDecisionId are required.");
 
       const missingDecision = await postJson(
         "/api/review/promote",

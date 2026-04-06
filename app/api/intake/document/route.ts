@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
+import { readOptionalString, readRequiredString } from "@/src/lib/api/validation";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 export async function POST(request: Request) {
@@ -8,8 +9,11 @@ export async function POST(request: Request) {
   const sourceSystem = formData.get("sourceSystem");
   const observedAt = formData.get("observedAt");
   const file = formData.get("file");
+  const normalizedPatientId = readRequiredString(patientId);
+  const normalizedSourceSystem = readRequiredString(sourceSystem);
+  const normalizedObservedAt = readOptionalString(observedAt);
 
-  if (typeof patientId !== "string" || typeof sourceSystem !== "string" || !(file instanceof File)) {
+  if (!normalizedPatientId || !normalizedSourceSystem || !(file instanceof File)) {
     return NextResponse.json(
       { error: "patientId, sourceSystem, and file are required." },
       { status: 400 },
@@ -21,12 +25,12 @@ export async function POST(request: Request) {
   try {
     const repository = getEvidenceRepository();
     const persisted = await repository.persistSourceDocumentUpload({
-      patientId,
-      sourceSystem,
+      patientId: normalizedPatientId,
+      sourceSystem: normalizedSourceSystem,
       originalFilename: file.name,
       mimeType: file.type,
       bytes,
-      observedAt: typeof observedAt === "string" && observedAt.length > 0 ? observedAt : undefined,
+      observedAt: normalizedObservedAt,
     });
 
     return NextResponse.json({

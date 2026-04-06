@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
+import { readOptionalString, readRequiredString } from "@/src/lib/api/validation";
 import { normalizeReportPayload } from "@/src/lib/normalization/normalize";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
@@ -36,7 +37,11 @@ export async function POST(request: Request) {
     );
   }
 
-  if (typeof body.patientId !== "string" || typeof body.vendor !== "string") {
+  const patientId = readRequiredString(body.patientId);
+  const vendor = readRequiredString(body.vendor);
+  const observedAt = readOptionalString(body.observedAt);
+
+  if (!patientId || !vendor) {
     return NextResponse.json(
       { error: "patientId and vendor are required." },
       { status: 400 },
@@ -57,20 +62,20 @@ export async function POST(request: Request) {
   try {
     const repository = getEvidenceRepository();
     const normalized = normalizeReportPayload({
-      patientId: body.patientId,
-      vendor: body.vendor,
-      observedAt: typeof body.observedAt === "string" ? body.observedAt : new Date().toISOString(),
+      patientId,
+      vendor,
+      observedAt: observedAt ?? new Date().toISOString(),
       entries: validEntries,
     });
 
     const persisted = await repository.persistNormalizedReport({
       ...normalized,
-      vendor: body.vendor,
+      vendor,
     });
 
     return NextResponse.json({
-      patientId: body.patientId,
-      vendor: body.vendor,
+      patientId,
+      vendor,
       observedAt: normalized.observedAt,
       ingestionId: persisted.ingestion.id,
       normalizationSummary: {

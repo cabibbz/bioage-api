@@ -26,6 +26,7 @@
 - upgraded the browser suite so dashboard pills, clinician-prep counts, and signal-board titles are checked against the live patient API snapshot after each workflow step
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario
+- fixed route validation so required string fields reject blank or whitespace-only values, and added functional coverage for that contract across the mutation routes
 
 ### 2026-04-05
 

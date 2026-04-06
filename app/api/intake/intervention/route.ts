@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
+import { readRequiredString } from "@/src/lib/api/validation";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 type InterventionBody = {
@@ -18,11 +19,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
+  const patientId = readRequiredString(body.patientId);
+  const title = readRequiredString(body.title);
+  const detail = readRequiredString(body.detail);
+  const occurredAt = readRequiredString(body.occurredAt);
+
   if (
-    typeof body.patientId !== "string" ||
-    typeof body.title !== "string" ||
-    typeof body.detail !== "string" ||
-    typeof body.occurredAt !== "string"
+    !patientId ||
+    !title ||
+    !detail ||
+    !occurredAt
   ) {
     return NextResponse.json(
       { error: "patientId, title, detail, and occurredAt are required." },
@@ -33,10 +39,10 @@ export async function POST(request: Request) {
   try {
     const repository = getEvidenceRepository();
     const patient = await repository.addInterventionEvent({
-      patientId: body.patientId,
-      title: body.title,
-      detail: body.detail,
-      occurredAt: body.occurredAt,
+      patientId,
+      title,
+      detail,
+      occurredAt,
     });
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
+import { readOptionalString, readRequiredString } from "@/src/lib/api/validation";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 type ReviewDecisionRequest = {
@@ -21,12 +22,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
+  const patientId = readRequiredString(body.patientId);
+  const parseTaskId = readRequiredString(body.parseTaskId);
+  const candidateId = readRequiredString(body.candidateId);
+  const reviewerName = readRequiredString(body.reviewerName);
+  const note = readOptionalString(body.note);
+  const proposedCanonicalCode = readOptionalString(body.proposedCanonicalCode);
+
   if (
-    typeof body.patientId !== "string" ||
-    typeof body.parseTaskId !== "string" ||
-    typeof body.candidateId !== "string" ||
+    !patientId ||
+    !parseTaskId ||
+    !candidateId ||
     (body.action !== "accept" && body.action !== "reject" && body.action !== "follow_up") ||
-    typeof body.reviewerName !== "string"
+    !reviewerName
   ) {
     return NextResponse.json(
       { error: "patientId, parseTaskId, candidateId, action, and reviewerName are required." },
@@ -37,16 +45,13 @@ export async function POST(request: Request) {
   try {
     const repository = getEvidenceRepository();
     const persisted = await repository.persistReviewDecision({
-      patientId: body.patientId,
-      parseTaskId: body.parseTaskId,
-      candidateId: body.candidateId,
+      patientId,
+      parseTaskId,
+      candidateId,
       action: body.action,
-      reviewerName: body.reviewerName,
-      note: typeof body.note === "string" ? body.note : undefined,
-      proposedCanonicalCode:
-        typeof body.proposedCanonicalCode === "string" && body.proposedCanonicalCode.length > 0
-          ? body.proposedCanonicalCode
-          : undefined,
+      reviewerName,
+      note,
+      proposedCanonicalCode,
     });
 
     return NextResponse.json({

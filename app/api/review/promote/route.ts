@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toRouteErrorResponse } from "@/src/lib/api/route-error";
+import { readRequiredString } from "@/src/lib/api/validation";
 import { getEvidenceRepository } from "@/src/lib/persistence";
 
 type PromoteRequest = {
@@ -16,15 +17,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (typeof body.patientId !== "string" || typeof body.reviewDecisionId !== "string") {
+  const patientId = readRequiredString(body.patientId);
+  const reviewDecisionId = readRequiredString(body.reviewDecisionId);
+
+  if (!patientId || !reviewDecisionId) {
     return NextResponse.json({ error: "patientId and reviewDecisionId are required." }, { status: 400 });
   }
 
   try {
     const repository = getEvidenceRepository();
     const promoted = await repository.promoteReviewDecision({
-      patientId: body.patientId,
-      reviewDecisionId: body.reviewDecisionId,
+      patientId,
+      reviewDecisionId,
     });
 
     return NextResponse.json({
