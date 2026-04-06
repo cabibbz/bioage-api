@@ -15,6 +15,8 @@ const demoPayload = {
     { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
     { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
     { name: "LDL-C", value: 2.1, unit: "mmol/L" },
+    { name: "HDL-C", value: 1.6, unit: "mmol/L" },
+    { name: "Triglycerides", value: 1.4, unit: "mmol/L" },
     { name: "Glucose", value: 5.4, unit: "mmol/L" },
     { name: "HbA1c", value: 34, unit: "mmol/mol" },
     { name: "CRP", textValue: "Below detection limit: 0.3", unit: "mg/L" },

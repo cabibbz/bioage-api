@@ -2066,6 +2066,8 @@ async function main() {
           { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
+          { name: "HDL-C", value: 1.6, unit: "mmol/L" },
+          { name: "Triglycerides", value: 1.4, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
           { name: "CRP", textValue: "Below detection limit: 0.3", unit: "mg/L" },
@@ -2084,7 +2086,7 @@ async function main() {
     successfulWorkbenchHeadings.add("Report intake and normalization");
     await reportSection.locator("label").filter({ hasText: "Vendor" }).locator("select").selectOption("Hurdle");
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
-    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 11' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"mappedEntries": 13' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "apoe_genotype"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"textValue": "e3/e4"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "mthfr_status"' }).waitFor();
@@ -2097,6 +2099,10 @@ async function main() {
     await reportSection.locator("pre").filter({ hasText: '"value": 5.26' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "ldl_cholesterol"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"value": 81.1' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "hdl_cholesterol"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"value": 61.8' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "triglycerides"' }).waitFor();
+    await reportSection.locator("pre").filter({ hasText: '"value": 123.9' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "vitamin_d"' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"value": 54' }).waitFor();
     await reportSection.locator("pre").filter({ hasText: '"canonicalCode": "lp_a"' }).waitFor();

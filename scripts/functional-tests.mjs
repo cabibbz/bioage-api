@@ -911,6 +911,34 @@ function createPromotionNormalizationFhirBundle() {
             resourceType: "Observation",
             status: "final",
             code: {
+              text: "HDL-C",
+            },
+            valueQuantity: {
+              value: 1.6,
+              unit: "mmol/L",
+            },
+            effectiveDateTime: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        {
+          resource: {
+            resourceType: "Observation",
+            status: "final",
+            code: {
+              text: "Triglycerides",
+            },
+            valueQuantity: {
+              value: 1.4,
+              unit: "mmol/L",
+            },
+            effectiveDateTime: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        {
+          resource: {
+            resourceType: "Observation",
+            status: "final",
+            code: {
               text: "Glucose",
             },
             valueQuantity: {
@@ -1299,6 +1327,8 @@ const scenarios = [
           { name: "MTHFR Mutation", textValue: "positive for one copy of C677T variant" },
           { name: "Apolipoprotein B", value: 78, unit: "mg/dL" },
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
+          { name: "HDL-C", value: 1.6, unit: "mmol/L" },
+          { name: "Triglycerides", value: 1.4, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
           { name: "CRP", textValue: "Below detection limit: 0.3", unit: "mg/L" },
@@ -1308,12 +1338,12 @@ const scenarios = [
         ],
       });
 
-      assert.equal(report.normalizationSummary.totalEntries, 12);
+      assert.equal(report.normalizationSummary.totalEntries, 14);
       assert.equal(report.normalizationSummary.mappedEntries, report.measurements.length);
       assert.equal(report.normalizationSummary.unmappedEntries, report.unmappedEntries.length);
       assert.equal(
         report.normalizationSummary.mappedEntries + report.normalizationSummary.unmappedEntries,
-        12,
+        14,
       );
       assert.deepEqual(
         report.measurements.map((measurement) => measurement.canonicalCode).sort(),
@@ -1323,11 +1353,13 @@ const scenarios = [
           "epigenetic_biological_age",
           "epigenetic_fitness_age",
           "fasting_glucose",
+          "hdl_cholesterol",
           "hba1c",
           "inflammation_crp",
           "ldl_cholesterol",
           "lp_a",
           "mthfr_status",
+          "triglycerides",
           "vitamin_d",
         ].sort(),
       );
@@ -1373,6 +1405,20 @@ const scenarios = [
       assert.equal(ldlMeasurement.value, 81.1);
       assert.equal(ldlMeasurement.unit, "mg/dL");
       assert.ok(ldlMeasurement.note.includes("standard cholesterol factor 0.0259"));
+      const hdlMeasurement = report.measurements.find(
+        (measurement) => measurement.canonicalCode === "hdl_cholesterol",
+      );
+      assert.ok(hdlMeasurement);
+      assert.equal(hdlMeasurement.value, 61.8);
+      assert.equal(hdlMeasurement.unit, "mg/dL");
+      assert.ok(hdlMeasurement.note.includes("standard cholesterol factor 0.0259"));
+      const triglyceridesMeasurement = report.measurements.find(
+        (measurement) => measurement.canonicalCode === "triglycerides",
+      );
+      assert.ok(triglyceridesMeasurement);
+      assert.equal(triglyceridesMeasurement.value, 123.9);
+      assert.equal(triglyceridesMeasurement.unit, "mg/dL");
+      assert.ok(triglyceridesMeasurement.note.includes("standard triglyceride factor 0.0113"));
       const lpAMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "lp_a");
       assert.ok(lpAMeasurement);
       assert.equal(lpAMeasurement.value, 28);
@@ -1413,6 +1459,20 @@ const scenarios = [
       );
       assert.ok(persistedMthfrMeasurement);
       assert.ok(persistedMthfrMeasurement.interpretation.includes("categorical result C677T heterozygous"));
+      const persistedHdlMeasurement = after.patient.measurements.find(
+        (measurement) =>
+          measurement.canonicalCode === "hdl_cholesterol" && measurement.observedAt === "2026-04-04T09:00:00.000Z",
+      );
+      assert.ok(persistedHdlMeasurement);
+      assert.equal(persistedHdlMeasurement.value, 61.8);
+      assert.equal(persistedHdlMeasurement.unit, "mg/dL");
+      const persistedTriglyceridesMeasurement = after.patient.measurements.find(
+        (measurement) =>
+          measurement.canonicalCode === "triglycerides" && measurement.observedAt === "2026-04-04T09:00:00.000Z",
+      );
+      assert.ok(persistedTriglyceridesMeasurement);
+      assert.equal(persistedTriglyceridesMeasurement.value, 123.9);
+      assert.equal(persistedTriglyceridesMeasurement.unit, "mg/dL");
     },
   },
   {
@@ -3671,6 +3731,16 @@ const scenarios = [
         (candidate) => candidate.displayName === "Glucose" && candidate.numericValue === 5.4 && candidate.unit === "mmol/L",
       );
       assert.ok(glucoseTarget);
+      const hdlTarget = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.displayName === "HDL-C" && candidate.numericValue === 1.6 && candidate.unit === "mmol/L",
+      );
+      assert.ok(hdlTarget);
+      const triglyceridesTarget = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.displayName === "Triglycerides" && candidate.numericValue === 1.4 && candidate.unit === "mmol/L",
+      );
+      assert.ok(triglyceridesTarget);
 
       const apoeDecision = await postJson("/api/review/decision", {
         patientId,
@@ -3688,6 +3758,22 @@ const scenarios = [
         action: "accept",
         reviewerName: "Functional reviewer",
         proposedCanonicalCode: "fasting_glucose",
+      });
+      const hdlDecision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: hdlTarget.task.id,
+        candidateId: hdlTarget.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "hdl_cholesterol",
+      });
+      const triglyceridesDecision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: triglyceridesTarget.task.id,
+        candidateId: triglyceridesTarget.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "triglycerides",
       });
 
       const beforePromotion = await getPatientSnapshot();
@@ -3726,27 +3812,83 @@ const scenarios = [
         timeline: 1,
       });
 
-      const persistedApoeMeasurement = afterGlucosePromotion.patient.measurements.find(
+      const promotedHdl = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: hdlDecision.decision.id,
+      });
+
+      const afterHdlPromotion = await getPatientSnapshot();
+      assert.equal(promotedHdl.alreadyPromoted, false);
+      assert.equal(promotedHdl.measurement.canonicalCode, "hdl_cholesterol");
+      assert.equal(promotedHdl.measurement.value, 61.8);
+      assert.equal(promotedHdl.measurement.unit, "mg/dL");
+      assert.equal(promotedHdl.measurement.textValue, undefined);
+      assertCountDelta(countSnapshot(afterGlucosePromotion), countSnapshot(afterHdlPromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+
+      const promotedTriglycerides = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: triglyceridesDecision.decision.id,
+      });
+
+      const afterTriglyceridesPromotion = await getPatientSnapshot();
+      assert.equal(promotedTriglycerides.alreadyPromoted, false);
+      assert.equal(promotedTriglycerides.measurement.canonicalCode, "triglycerides");
+      assert.equal(promotedTriglycerides.measurement.value, 123.9);
+      assert.equal(promotedTriglycerides.measurement.unit, "mg/dL");
+      assert.equal(promotedTriglycerides.measurement.textValue, undefined);
+      assertCountDelta(countSnapshot(afterHdlPromotion), countSnapshot(afterTriglyceridesPromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+
+      const persistedApoeMeasurement = afterTriglyceridesPromotion.patient.measurements.find(
         (measurement) => measurement.id === promotedApoe.measurement.id,
       );
       assert.ok(persistedApoeMeasurement);
       assert.equal(persistedApoeMeasurement.textValue, "e3/e4");
 
-      const persistedGlucoseMeasurement = afterGlucosePromotion.patient.measurements.find(
+      const persistedGlucoseMeasurement = afterTriglyceridesPromotion.patient.measurements.find(
         (measurement) => measurement.id === promotedGlucose.measurement.id,
       );
       assert.ok(persistedGlucoseMeasurement);
       assert.equal(persistedGlucoseMeasurement.value, 97.3);
       assert.equal(persistedGlucoseMeasurement.unit, "mg/dL");
+      const persistedHdlMeasurement = afterTriglyceridesPromotion.patient.measurements.find(
+        (measurement) => measurement.id === promotedHdl.measurement.id,
+      );
+      assert.ok(persistedHdlMeasurement);
+      assert.equal(persistedHdlMeasurement.value, 61.8);
+      assert.equal(persistedHdlMeasurement.unit, "mg/dL");
+      const persistedTriglyceridesMeasurement = afterTriglyceridesPromotion.patient.measurements.find(
+        (measurement) => measurement.id === promotedTriglycerides.measurement.id,
+      );
+      assert.ok(persistedTriglyceridesMeasurement);
+      assert.equal(persistedTriglyceridesMeasurement.value, 123.9);
+      assert.equal(persistedTriglyceridesMeasurement.unit, "mg/dL");
 
       assert.ok(
-        afterGlucosePromotion.patient.timeline.some((event) =>
+        afterTriglyceridesPromotion.patient.timeline.some((event) =>
           event.detail.includes("apoe_genotype as ApoE Genotype e3/e4"),
         ),
       );
       assert.ok(
-        afterGlucosePromotion.patient.timeline.some((event) =>
+        afterTriglyceridesPromotion.patient.timeline.some((event) =>
           event.detail.includes("fasting_glucose as Fasting Glucose 97.3 mg/dL"),
+        ),
+      );
+      assert.ok(
+        afterTriglyceridesPromotion.patient.timeline.some((event) =>
+          event.detail.includes("hdl_cholesterol as HDL Cholesterol 61.8 mg/dL"),
+        ),
+      );
+      assert.ok(
+        afterTriglyceridesPromotion.patient.timeline.some((event) =>
+          event.detail.includes("triglycerides as Triglycerides 123.9 mg/dL"),
         ),
       );
     },

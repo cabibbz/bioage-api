@@ -100,6 +100,7 @@
 - updated the docs verifier to claim the full research set listed in `docs/README.md`, including the vendor biomarker catalog and canonical catalog expansion spec
 - added the first unit-aware normalization rules so HbA1c IFCC mmol/mol converts into the preferred percent unit while Lp(a) mg/dL stays preserved and explicitly flagged as non-interconvertible
 - expanded the report workbench and both verification suites so converted and preserved alternate-unit cases are exercised through the actual intake flow
+- expanded explicit lipid mmol/L coverage so HDL and triglycerides now run through the same report-intake and reviewed-promotion normalization path as LDL
 - extended canonical measurement storage plus promotion beyond numeric-only values so accepted reviewed text and bounded results can also become first-class measurements
 - updated the promotion workbench, persisted snapshot helpers, schema/seed export, and browser/API verification so a text-valued FHIR observation now moves through the same audited promotion path
 
