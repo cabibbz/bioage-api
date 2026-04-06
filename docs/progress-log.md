@@ -31,6 +31,7 @@
 - expanded the browser suite again so non-accept review actions (`reject` and `follow_up`) are exercised through the UI and the promotion workbench is verified empty after every promotable decision is consumed
 - tightened that browser path so the non-accept actions are exercised after the accepted-review promotion queue has already been drained, proving the empty-state recovery is stable
 - expanded the browser suite again so an existing rejected decision is updated back to accepted through the UI, the pending promotion queue recovers, and the reopened decision can be promoted without duplicating review records
+- fixed the review workbench so selecting a previously reviewed candidate reloads the saved action, reviewer, mapping, and note instead of stale demo defaults, and added browser assertions for that reopened state
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario

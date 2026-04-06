@@ -171,6 +171,37 @@ async function waitForSelectOptionValueToDisappear(selectLocator, value) {
   throw new Error(`Timed out waiting for select option value "${value}" to disappear.`);
 }
 
+async function assertReviewFormState(section, expected) {
+  const actionSelect = section.locator("label").filter({ hasText: "Action" }).locator("select");
+  const reviewerInput = section.locator("label").filter({ hasText: "Reviewer" }).locator("input");
+  const mappingSelect = section.locator("label").filter({ hasText: "Proposed canonical mapping" }).locator("select");
+  const noteArea = section.locator("label").filter({ hasText: "Note" }).locator("textarea");
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const actual = {
+      action: await actionSelect.inputValue(),
+      reviewerName: await reviewerInput.inputValue(),
+      proposedCanonicalCode: await mappingSelect.inputValue(),
+      note: await noteArea.inputValue(),
+      mappingDisabled: await mappingSelect.isDisabled(),
+    };
+
+    if (
+      actual.action === expected.action &&
+      actual.reviewerName === expected.reviewerName &&
+      actual.proposedCanonicalCode === expected.proposedCanonicalCode &&
+      actual.note === expected.note &&
+      actual.mappingDisabled === (expected.action !== "accept")
+    ) {
+      return;
+    }
+
+    await section.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for review form state ${JSON.stringify(expected)}.`);
+}
+
 function countFlaggedSignals(snapshot) {
   return snapshot.patient.measurements.filter(
     (measurement) => measurement.evidenceStatus === "conflicted" || measurement.evidenceStatus === "watch",
@@ -938,6 +969,12 @@ async function main() {
     await parseTaskSelect.selectOption({ value: resolvedUpdateTarget.task.id });
     await waitForSelectOptionValue(candidateSelect, resolvedUpdateTarget.candidate.id);
     await candidateSelect.selectOption({ value: resolvedUpdateTarget.candidate.id });
+    await assertReviewFormState(reviewSection, {
+      action: existingReviewDecision.action,
+      reviewerName: existingReviewDecision.reviewerName,
+      proposedCanonicalCode: existingReviewDecision.proposedCanonicalCode ?? "",
+      note: existingReviewDecision.note ?? "",
+    });
     await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("accept");
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician reopened");
     await reviewSection
@@ -972,9 +1009,19 @@ async function main() {
     const reopenedPendingPromotions = pendingPromotionDecisions(afterReviewUpdate);
     assert.equal(reopenedPendingPromotions.length, 1);
     assert.equal(reopenedPendingPromotions[0].id, updatedReviewDecision.id);
+    await waitForSelectOptionValue(parseTaskSelect, resolvedUpdateTarget.task.id);
+    await parseTaskSelect.selectOption({ value: resolvedUpdateTarget.task.id });
+    await waitForSelectOptionValue(candidateSelect, resolvedUpdateTarget.candidate.id);
+    await candidateSelect.selectOption({ value: resolvedUpdateTarget.candidate.id });
+    await assertReviewFormState(reviewSection, {
+      action: updatedReviewDecision.action,
+      reviewerName: updatedReviewDecision.reviewerName,
+      proposedCanonicalCode: updatedReviewDecision.proposedCanonicalCode ?? "",
+      note: updatedReviewDecision.note ?? "",
+    });
     await waitForSelectOptionValue(promotionSelect, updatedReviewDecision.id);
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdate);
-    log("review", "updated an existing rejected decision into an accepted one and verified the pending promotion queue recovered");
+    log("review", "updated an existing rejected decision into an accepted one, reloaded the saved form state, and verified the pending promotion queue recovered");
 
     const promotionCountBeforeReopenedPromotion = afterReviewUpdate.measurementPromotions.length;
     await promotionSelect.selectOption({ value: updatedReviewDecision.id });

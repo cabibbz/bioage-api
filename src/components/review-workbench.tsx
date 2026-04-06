@@ -12,6 +12,7 @@ type ReviewWorkbenchProps = {
 };
 
 const defaultReviewerName = "Demo clinician";
+const defaultReviewNote = "Looks directionally valid. Hold as reviewed candidate before promotion.";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -44,7 +45,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
   const [action, setAction] = useState<"accept" | "reject" | "follow_up">("accept");
   const [proposedCanonicalCode, setProposedCanonicalCode] = useState("");
   const [reviewerName, setReviewerName] = useState(defaultReviewerName);
-  const [note, setNote] = useState("Looks directionally valid. Hold as reviewed candidate before promotion.");
+  const [note, setNote] = useState(defaultReviewNote);
   const [result, setResult] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,6 +54,11 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
     selectedTask?.candidates.find((candidate) => candidate.id === selectedCandidateId) ??
     selectedTask?.candidates[0] ??
     null;
+  const selectedDecision =
+    decisions.find(
+      (decision) =>
+        decision.parseTaskId === selectedTask?.id && decision.candidateId === selectedCandidate?.id,
+    ) ?? null;
 
   useEffect(() => {
     if (!selectedTask) {
@@ -74,6 +80,29 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
       setSelectedCandidateId(selectedTask.candidates[0]?.id ?? "");
     }
   }, [selectedCandidateId, selectedTask, selectedTaskId]);
+
+  useEffect(() => {
+    if (!selectedTask || !selectedCandidate) {
+      setAction("accept");
+      setProposedCanonicalCode("");
+      setReviewerName(defaultReviewerName);
+      setNote(defaultReviewNote);
+      return;
+    }
+
+    if (selectedDecision) {
+      setAction(selectedDecision.action);
+      setProposedCanonicalCode(selectedDecision.proposedCanonicalCode ?? "");
+      setReviewerName(selectedDecision.reviewerName);
+      setNote(selectedDecision.note ?? defaultReviewNote);
+      return;
+    }
+
+    setAction("accept");
+    setProposedCanonicalCode("");
+    setReviewerName(defaultReviewerName);
+    setNote(defaultReviewNote);
+  }, [selectedCandidate?.id, selectedDecision?.id, selectedDecision?.updatedAt, selectedTask?.id]);
 
   async function handleSubmit() {
     if (!selectedTask || !selectedCandidate) {
@@ -117,10 +146,6 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
   function resetDemo() {
     setSelectedTaskId(candidateTasks[0]?.id ?? "");
     setSelectedCandidateId(candidateTasks[0]?.candidates[0]?.id ?? "");
-    setAction("accept");
-    setProposedCanonicalCode("");
-    setReviewerName(defaultReviewerName);
-    setNote("Looks directionally valid. Hold as reviewed candidate before promotion.");
     setResult("");
   }
 
