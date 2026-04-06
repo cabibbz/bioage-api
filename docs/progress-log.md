@@ -60,6 +60,7 @@
 - fixed route validation so required string fields reject blank or whitespace-only values, and added functional coverage for that contract across the mutation routes
 - tightened backend intake validation so report, intervention, and document routes reject malformed ISO timestamps, and expanded the functional suite to cover those invalid-date payloads
 - tightened the report-entry contract so malformed rows are rejected instead of being silently dropped, shared that validation between the report route and workbench, and added API plus browser coverage for the malformed-entry path
+- tightened the source-document contract so zero-byte uploads are rejected instead of being stored as review noise, shared that validation between the document route and workbench, and added API plus browser coverage for the empty-file path
 
 ### 2026-04-05
 

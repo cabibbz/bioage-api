@@ -1167,6 +1167,17 @@ const scenarios = [
       );
       assert.equal(blankFields.error, "patientId, sourceSystem, and file are required.");
 
+      const emptyFile = await postMultipart(
+        "/api/intake/document",
+        {
+          patientId,
+          sourceSystem: "Functional document validation",
+          file: new File([], "empty-note.txt", { type: "text/plain" }),
+        },
+        400,
+      );
+      assert.equal(emptyFile.error, "Choose a non-empty file.");
+
       const invalidObservedAt = await postMultipart(
         "/api/intake/document",
         {

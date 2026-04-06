@@ -2,6 +2,7 @@
 
 import { startTransition, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { emptySourceDocumentFileError, hasSourceDocumentContent } from "@/src/lib/intake/source-document";
 
 type SelectedFileState = {
   file: File;
@@ -26,6 +27,11 @@ export function DocumentUploadWorkbench() {
   async function handleSubmit() {
     if (!selectedFile) {
       setResult(JSON.stringify({ error: "Choose a file first." }, null, 2));
+      return;
+    }
+
+    if (!hasSourceDocumentContent(selectedFile.file.size)) {
+      setResult(JSON.stringify({ error: emptySourceDocumentFileError }, null, 2));
       return;
     }
 

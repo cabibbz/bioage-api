@@ -1087,6 +1087,27 @@ async function main() {
     );
     log("document", "rejected a missing file locally without mutating persisted state");
 
+    const emptyFileDocumentErrorSnapshot = await loadPersistedSnapshot();
+    await documentSection.locator('input[type="file"]').setInputFiles({
+      name: "ui-empty-note.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.alloc(0),
+    });
+    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    await documentSection.locator("pre").filter({ hasText: '"error": "Choose a non-empty file."' }).waitFor();
+    await assertDocumentDraftState(documentSection, {
+      sourceSystem: "Manual clinic upload",
+      filePreviewText: "ui-empty-note.txt",
+    });
+    errorWorkbenchHeadings.add("Upload a source file");
+    await assertUiStateUnchangedAfterError(
+      page,
+      sections,
+      emptyFileDocumentErrorSnapshot,
+      discoveredWorkbenchHeadings,
+    );
+    log("document", "rejected an empty file locally without mutating persisted state");
+
     const documentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("   ");
     await documentSection.locator('input[type="file"]').setInputFiles({
