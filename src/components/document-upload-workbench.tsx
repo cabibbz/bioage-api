@@ -28,13 +28,18 @@ export function DocumentUploadWorkbench() {
       return;
     }
 
+    if (!sourceSystem.trim()) {
+      setResult(JSON.stringify({ error: "Choose a source system first." }, null, 2));
+      return;
+    }
+
     setIsSubmitting(true);
     setResult("");
 
     try {
       const formData = new FormData();
       formData.set("patientId", "pt_001");
-      formData.set("sourceSystem", sourceSystem);
+      formData.set("sourceSystem", sourceSystem.trim());
       formData.set("file", selectedFile.file);
 
       const response = await fetch("/api/intake/document", {

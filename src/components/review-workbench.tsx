@@ -116,6 +116,12 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
       return;
     }
 
+    const normalizedReviewerName = reviewerName.trim();
+    if (!normalizedReviewerName) {
+      setResult(JSON.stringify({ error: "Reviewer name is required." }, null, 2));
+      return;
+    }
+
     setIsSubmitting(true);
     setResult("");
 
@@ -130,7 +136,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
           parseTaskId: selectedTask.id,
           candidateId: selectedCandidate.id,
           action,
-          reviewerName,
+          reviewerName: normalizedReviewerName,
           note,
           proposedCanonicalCode: action === "accept" ? proposedCanonicalCode || undefined : undefined,
         }),

@@ -763,10 +763,10 @@ async function main() {
       buffer: firstArchive.buffer,
     });
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
-    await documentSection.locator("pre").filter({ hasText: '"error": "patientId, sourceSystem, and file are required."' }).waitFor();
+    await documentSection.locator("pre").filter({ hasText: '"error": "Choose a source system first."' }).waitFor();
     errorWorkbenchHeadings.add("Upload a source file");
     await assertUiStateUnchangedAfterError(page, sections, documentErrorSnapshot, discoveredWorkbenchHeadings);
-    log("document", "rejected blank source-system upload without mutating persisted state");
+    log("document", "rejected a blank source system locally without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Upload a source file");
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);
@@ -911,11 +911,11 @@ async function main() {
     await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
     await reviewSection
       .locator("pre")
-      .filter({ hasText: '"error": "patientId, parseTaskId, candidateId, action, and reviewerName are required."' })
+      .filter({ hasText: '"error": "Reviewer name is required."' })
       .waitFor();
     errorWorkbenchHeadings.add("Adjudicate parser candidates");
     await assertUiStateUnchangedAfterError(page, sections, reviewErrorSnapshot, discoveredWorkbenchHeadings);
-    log("review", "rejected blank reviewer input without mutating persisted state");
+    log("review", "rejected a blank reviewer locally without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
     const snapshotBeforeTextReview = await loadPersistedSnapshot();
