@@ -41,6 +41,7 @@
 - widened qualitative text normalization again so suffix-style process wording like `POSITIVE SCREENING RESULT`, `NEGATIVE QUALITATIVE ASSAY`, and `NON REACTIVE REPEAT SCREEN` now resolves into stable canonical text through both direct report intake and reviewed promotion
 - widened qualitative text normalization again so base-labeled process wording like `POSITIVE: SCREENING RESULT`, `NEGATIVE, QUALITATIVE ASSAY`, and `NON REACTIVE = RESULT STATUS` now resolves into stable canonical text through both direct report intake and reviewed promotion
 - widened qualitative text normalization again so slash-separated wrappers like `SCREENING RESULT / POSITIVE`, `NEGATIVE / QUALITATIVE ASSAY`, and `RESULT STATUS / NON REACTIVE` now resolve into stable canonical text through both direct report intake and reviewed promotion
+- widened qualitative text normalization again so semicolon-separated wrappers like `SCREENING RESULT; POSITIVE`, `NEGATIVE; QUALITATIVE ASSAY`, and `RESULT STATUS; NON REACTIVE` now resolve into stable canonical text through both direct report intake and reviewed promotion
 - added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
 - added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text
