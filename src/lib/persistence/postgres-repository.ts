@@ -7,9 +7,10 @@ import {
   classifySourceDocument,
   inferMimeTypeFromFilename,
 } from "@/src/lib/ingestion/classify";
-import { canonicalCatalog } from "@/src/lib/normalization/catalog";
+import { canonicalCatalog, findCanonicalDefinitionByCode } from "@/src/lib/normalization/catalog";
 import { runParseTask, toSourceDocumentStatus } from "@/src/lib/parsing/task-runner";
 import {
+  buildPromotionInterpretation,
   buildDocumentStatus,
   candidateHasPromotableValue,
   summarizeArchiveExtraction,
@@ -1167,11 +1168,16 @@ export const postgresEvidenceRepository: EvidenceRepository = {
         throw new Error(`Candidate ${candidate.displayName} does not include a promotable value yet.`);
       }
 
+      const canonicalDefinition = findCanonicalDefinitionByCode(reviewDecision.proposedCanonicalCode);
+      if (!canonicalDefinition) {
+        throw new Error(`Canonical code ${reviewDecision.proposedCanonicalCode} is not in the catalog.`);
+      }
+
       const sourceDocument = await findSourceDocument(client, reviewDecision.sourceDocumentId);
       const observedAt = candidate.observedAt ?? sourceDocument?.observedAt ?? reviewDecision.updatedAt;
       const now = new Date().toISOString();
       const measurementId = randomUUID();
-      const promotedValue = toPromotedMeasurementValue(candidate);
+      const promotedValue = toPromotedMeasurementValue(candidate, canonicalDefinition);
       const promotedMeasurement: PatientRecord["measurements"][number] = {
         id: measurementId,
         title: reviewDecision.proposedTitle,
@@ -1182,8 +1188,10 @@ export const postgresEvidenceRepository: EvidenceRepository = {
           : "Reviewed parser candidate",
         observedAt,
         ...promotedValue,
-        interpretation:
-          "Clinician accepted parser candidate and promoted it into the longitudinal record. Preserve source provenance and compare against prior timepoints.",
+        interpretation: buildPromotionInterpretation({
+          modality: reviewDecision.proposedModality,
+          ...promotedValue,
+        }),
         evidenceStatus: "stable",
         confidenceLabel: "moderate",
         deltaLabel: "Promoted from reviewed candidate",
@@ -1207,7 +1215,7 @@ export const postgresEvidenceRepository: EvidenceRepository = {
         type: "assessment",
         occurredAt: now,
         title: `${reviewDecision.proposedTitle} promoted into canonical record`,
-        detail: `${reviewDecision.candidateDisplayName} was promoted from clinician-reviewed parser output into ${reviewDecision.proposedCanonicalCode}.`,
+        detail: `${reviewDecision.candidateDisplayName} was promoted from clinician-reviewed parser output into ${reviewDecision.proposedCanonicalCode} as ${summarizeMeasurement(promotedMeasurement)}.`,
       };
 
       await insertMeasurement(client, input.patientId, promotedMeasurement, now);

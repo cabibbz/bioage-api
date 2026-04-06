@@ -39,7 +39,7 @@ Current non-goals:
 8. Deterministic parsers summarize FHIR JSON, generic JSON, CSV, TXT, C-CDA structure, and ZIP manifests immediately.
 9. PDF, image, HTML, binary spreadsheet, and unknown formats are marked for review instead of being force-parsed.
 10. `POST /api/review/decision` stores clinician decisions against parser candidates and appends audit notes to the patient timeline.
-11. `POST /api/review/promote` promotes accepted reviewed decisions with numeric or text values into canonical measurements and stores promotion audit records.
+11. `POST /api/review/promote` promotes accepted reviewed decisions with numeric or text values into canonical measurements using the same unit-conversion and text-canonicalization rules as direct report intake, then stores promotion audit records.
 12. `POST /api/intake/intervention` persists protocol changes directly into the timeline.
 13. The client refreshes and the page reflects the newly stored data.
 

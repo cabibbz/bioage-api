@@ -1,13 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { PatientRecord } from "@/src/lib/domain/types";
 import { formatMeasurementValue, getMeasurementValueKind } from "@/src/lib/domain/measurements";
+import { CanonicalDefinition } from "@/src/lib/normalization/catalog";
 import { NormalizedMeasurement, UnmappedEntry } from "@/src/lib/normalization/normalize";
+import { normalizeTextMeasurementValue } from "@/src/lib/normalization/text-values";
+import { resolveMeasurementUnit } from "@/src/lib/normalization/units";
 import {
   ParsedMeasurementCandidate,
   SourceDocumentClassification,
   SourceDocumentStatus,
   StoredSourceDocument,
 } from "@/src/lib/persistence/store-types";
+
+type MeasurementInterpretationInput = Pick<
+  PatientRecord["measurements"][number],
+  "value" | "textValue" | "unit" | "modality"
+>;
+type MeasurementSummaryInput = MeasurementInterpretationInput & Pick<PatientRecord["measurements"][number], "title">;
 
 export function buildDocumentStatus(classification: SourceDocumentClassification): SourceDocumentStatus {
   if (classification === "zip_archive") {
@@ -38,11 +47,11 @@ export function summarizeArchiveExtraction(
   } entries; extracted ${extractedChildDocuments.length} supported child documents.`;
 }
 
-export function summarizeMeasurement(measurement: NormalizedMeasurement) {
+export function summarizeMeasurement(measurement: MeasurementSummaryInput) {
   return `${measurement.title} ${formatMeasurementValue(measurement)}`;
 }
 
-export function buildInterpretation(measurement: NormalizedMeasurement) {
+export function buildInterpretation(measurement: MeasurementInterpretationInput) {
   if (measurement.value === undefined) {
     const renderedValue = formatMeasurementValue(measurement);
     if (measurement.modality === "genetic") {
@@ -65,6 +74,31 @@ export function buildInterpretation(measurement: NormalizedMeasurement) {
   }
 
   return "Structured preventive-health measurement normalized from the source report. Review trend and reference context before acting.";
+}
+
+export function buildPromotionInterpretation(measurement: MeasurementInterpretationInput) {
+  if (measurement.value === undefined) {
+    const renderedValue = formatMeasurementValue(measurement);
+    if (measurement.modality === "genetic") {
+      return `Clinician accepted parser candidate and promoted the categorical genetic finding ${renderedValue}. Keep the exact allele or mutation wording, source assay, and static non-trending nature explicit in clinician review.`;
+    }
+
+    if (getMeasurementValueKind(measurement) === "bounded") {
+      return `Clinician accepted parser candidate and promoted the bounded result ${renderedValue}. Keep the operator, threshold context, and source provenance explicit before comparing trends or intervention effects.`;
+    }
+
+    return `Clinician accepted parser candidate and promoted the text or categorical result ${renderedValue}. Keep the original wording and source provenance explicit before using it in longitudinal comparison.`;
+  }
+
+  if (measurement.modality === "epigenetic") {
+    return "Clinician accepted parser candidate and promoted an epigenetic metric into the longitudinal record. Preserve source methodology and compare against prior timepoints.";
+  }
+
+  if (measurement.modality === "wearable") {
+    return "Clinician accepted parser candidate and promoted a wearable-derived signal into the evidence layer. Compare it with recent intervention windows before drawing conclusions.";
+  }
+
+  return "Clinician accepted parser candidate and promoted a normalized preventive-health measurement into the longitudinal record. Review trend, unit, and source context before acting.";
 }
 
 export function toEvidenceStatus(
@@ -108,18 +142,23 @@ export function candidateHasPromotableValue(candidate: ParsedMeasurementCandidat
   return candidate.numericValue !== undefined || Boolean(candidate.textValue?.trim());
 }
 
-export function toPromotedMeasurementValue(candidate: ParsedMeasurementCandidate) {
+export function toPromotedMeasurementValue(
+  candidate: ParsedMeasurementCandidate,
+  definition: CanonicalDefinition,
+) {
   if (candidate.numericValue !== undefined) {
+    const normalizedValue = resolveMeasurementUnit(definition, candidate.numericValue, candidate.unit);
     return {
-      value: candidate.numericValue,
-      unit: candidate.unit,
+      value: normalizedValue.value,
+      unit: normalizedValue.unit,
     } as const;
   }
 
   const textValue = candidate.textValue?.trim();
   if (textValue) {
+    const normalizedText = normalizeTextMeasurementValue(definition, textValue);
     return {
-      textValue,
+      textValue: normalizedText.textValue,
       unit: candidate.unit,
     } as const;
   }

@@ -1132,9 +1132,9 @@ function textObservationFixture() {
       resourceType: "Observation",
       status: "final",
       code: {
-        text: "ApoB interpretation",
+        text: "APOE Genotype",
       },
-      valueString: "borderline high",
+      valueString: "APOE e4/e3 genotype",
       effectiveDateTime: "2026-04-03T09:00:00.000Z",
     }),
   );
@@ -1403,10 +1403,10 @@ async function main() {
     const candidateSelect = reviewSection.locator("select").nth(1);
     const nonNumericObservation = {
       filename: "ui-functional-text-observation.json",
-      sourceSystem: "UI functional text observation",
+      sourceSystem: "UI functional genetic observation",
       reviewerName: "UI clinician text accept",
-      proposedCanonicalCode: "apob",
-      note: "Accepted text-valued observation to prove text promotion works end to end.",
+      proposedCanonicalCode: "apoe_genotype",
+      note: "Accepted text-valued observation to prove promotion normalization works end to end.",
     };
     const { acceptedReviewTargets, nonAcceptReviewTargets } = reviewCoverageTargets;
     const firstReviewTarget = acceptedReviewTargets[0];
@@ -1430,7 +1430,7 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await parseTasksSection.getByText(nonNumericObservation.filename, { exact: true }).waitFor();
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
-    log("document", "uploaded a text-valued FHIR observation through the UI for promotion-queue eligibility coverage");
+    log("document", "uploaded a text-valued FHIR observation through the UI for promotion-normalization coverage");
 
     const reviewErrorSnapshot = await loadPersistedSnapshot();
     const errorReviewTarget = resolveReviewSelection(
@@ -1771,6 +1771,14 @@ async function main() {
     coveredDashboardHeadings.add("Interventions and evidence windows");
     coveredDashboardHeadings.add("Modality-aware evidence cards");
     const afterAcceptedPromotions = await loadPersistedSnapshot();
+    const promotedApoeReviewMeasurement = afterAcceptedPromotions.patient.measurements.find(
+      (measurement) =>
+        measurement.canonicalCode === "apoe_genotype" &&
+        measurement.sourceVendor === `${nonNumericObservation.sourceSystem} reviewed parser candidate`,
+    );
+    assert.ok(promotedApoeReviewMeasurement, "Reviewed ApoE promotion should persist as a canonical patient measurement.");
+    assert.equal(promotedApoeReviewMeasurement.textValue, "e3/e4");
+    assert.ok(promotedApoeReviewMeasurement.interpretation.includes("categorical genetic finding e3/e4"));
     await assertDashboardMatchesSnapshot(sections, afterAcceptedPromotions);
     parityCheckpoints.push({
       label: "accepted_promotions_applied",

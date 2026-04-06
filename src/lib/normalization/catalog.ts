@@ -110,6 +110,8 @@ const catalogByLookupKey = new Map(
   canonicalCatalog.flatMap((item) => getLookupKeys(item).map((lookupKey) => [lookupKey, item] as const)),
 );
 
+const catalogByCode = new Map(canonicalCatalog.map((item) => [item.canonicalCode, item] as const));
+
 const catalogByLoincCode = new Map(
   canonicalCatalog
     .filter((item) => item.loincCode)
@@ -118,6 +120,10 @@ const catalogByLoincCode = new Map(
 
 export function findCanonicalDefinitionByName(value: string) {
   return catalogByLookupKey.get(normalizeCatalogKey(value));
+}
+
+export function findCanonicalDefinitionByCode(value: string) {
+  return catalogByCode.get(value.trim());
 }
 
 export function findCanonicalDefinitionByLoincCode(value: string) {

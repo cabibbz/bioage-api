@@ -10,8 +10,8 @@ import {
 import { runParseTask, toSourceDocumentStatus } from "@/src/lib/parsing/task-runner";
 import { PatientRecord, TimelineEvent } from "@/src/lib/domain/types";
 import {
+  buildPromotionInterpretation,
   buildDocumentStatus,
-  buildInterpretation,
   candidateHasPromotableValue,
   summarizeArchiveExtraction,
   summarizeMeasurement,
@@ -35,7 +35,7 @@ import {
   StoredReviewDecision,
   StoredSourceDocument,
 } from "@/src/lib/persistence/store-types";
-import { canonicalCatalog } from "@/src/lib/normalization/catalog";
+import { canonicalCatalog, findCanonicalDefinitionByCode } from "@/src/lib/normalization/catalog";
 import { getBinaryStorageRepository } from "@/src/lib/storage";
 
 const storePath = path.join(process.cwd(), "data", "store.json");
@@ -395,10 +395,15 @@ export async function promoteReviewDecision(input: {
     throw new Error(`Candidate ${candidate.displayName} does not include a promotable value yet.`);
   }
 
+  const canonicalDefinition = findCanonicalDefinitionByCode(reviewDecision.proposedCanonicalCode);
+  if (!canonicalDefinition) {
+    throw new Error(`Canonical code ${reviewDecision.proposedCanonicalCode} is not in the catalog.`);
+  }
+
   const sourceDocument = store.sourceDocuments.find((document) => document.id === reviewDecision.sourceDocumentId);
   const observedAt = candidate.observedAt ?? sourceDocument?.observedAt ?? reviewDecision.updatedAt;
   const measurementId = randomUUID();
-  const promotedValue = toPromotedMeasurementValue(candidate);
+  const promotedValue = toPromotedMeasurementValue(candidate, canonicalDefinition);
   const promotedMeasurement: PatientRecord["measurements"][number] = {
     id: measurementId,
     title: reviewDecision.proposedTitle,
@@ -409,8 +414,10 @@ export async function promoteReviewDecision(input: {
       : "Reviewed parser candidate",
     observedAt,
     ...promotedValue,
-    interpretation:
-      "Clinician accepted parser candidate and promoted it into the longitudinal record. Preserve source provenance and compare against prior timepoints.",
+    interpretation: buildPromotionInterpretation({
+      modality: reviewDecision.proposedModality,
+      ...promotedValue,
+    }),
     evidenceStatus: "stable",
     confidenceLabel: "moderate",
     deltaLabel: "Promoted from reviewed candidate",
@@ -435,7 +442,7 @@ export async function promoteReviewDecision(input: {
     type: "assessment",
     occurredAt: now,
     title: `${reviewDecision.proposedTitle} promoted into canonical record`,
-    detail: `${reviewDecision.candidateDisplayName} was promoted from clinician-reviewed parser output into ${reviewDecision.proposedCanonicalCode}.`,
+    detail: `${reviewDecision.candidateDisplayName} was promoted from clinician-reviewed parser output into ${reviewDecision.proposedCanonicalCode} as ${summarizeMeasurement(promotedMeasurement)}.`,
   };
 
   const updatedPatient: PatientRecord = {

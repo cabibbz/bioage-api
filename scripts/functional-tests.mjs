@@ -701,6 +701,48 @@ function createTextFhirResource() {
   );
 }
 
+function createPromotionNormalizationFhirBundle() {
+  return Buffer.from(
+    JSON.stringify({
+      resourceType: "Bundle",
+      type: "document",
+      entry: [
+        {
+          resource: {
+            resourceType: "Composition",
+            title: "Promotion Normalization Coverage",
+          },
+        },
+        {
+          resource: {
+            resourceType: "Observation",
+            status: "final",
+            code: {
+              text: "APOE Genotype",
+            },
+            valueString: "APOE 4/3",
+            effectiveDateTime: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        {
+          resource: {
+            resourceType: "Observation",
+            status: "final",
+            code: {
+              text: "Glucose",
+            },
+            valueQuantity: {
+              value: 5.4,
+              unit: "mmol/L",
+            },
+            effectiveDateTime: "2026-04-05T10:00:00.000Z",
+          },
+        },
+      ],
+    }),
+  );
+}
+
 function createGenericJsonFixture() {
   return Buffer.from(
     JSON.stringify({
@@ -1816,6 +1858,111 @@ const scenarios = [
         measurementPromotions: 1,
         timeline: 1,
       });
+    },
+  },
+  {
+    name: "promotion-normalizes-reviewed-candidate-values",
+    covers: ["POST /api/review/promote"],
+    coverageType: "success",
+    async run() {
+      const upload = await postMultipart("/api/intake/document", {
+        patientId,
+        sourceSystem: "Functional promotion normalization",
+        observedAt: "2026-04-05T10:00:00.000Z",
+        file: new File([createPromotionNormalizationFhirBundle()], "promotion-normalization-bundle.json", {
+          type: "application/json",
+        }),
+      });
+
+      const apoeTarget = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.displayName === "APOE Genotype" && candidate.numericValue === undefined,
+      );
+      assert.ok(apoeTarget);
+
+      const glucoseTarget = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.displayName === "Glucose" && candidate.numericValue === 5.4 && candidate.unit === "mmol/L",
+      );
+      assert.ok(glucoseTarget);
+
+      const apoeDecision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: apoeTarget.task.id,
+        candidateId: apoeTarget.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "apoe_genotype",
+      });
+
+      const glucoseDecision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: glucoseTarget.task.id,
+        candidateId: glucoseTarget.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "fasting_glucose",
+      });
+
+      const beforePromotion = await getPatientSnapshot();
+      const promotedApoe = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: apoeDecision.decision.id,
+      });
+
+      const afterApoePromotion = await getPatientSnapshot();
+      assert.equal(promotedApoe.alreadyPromoted, false);
+      assert.equal(promotedApoe.measurement.canonicalCode, "apoe_genotype");
+      assert.equal(promotedApoe.measurement.textValue, "e3/e4");
+      assert.equal(promotedApoe.measurement.unit, undefined);
+      assert.ok(promotedApoe.measurement.interpretation.includes("categorical genetic finding e3/e4"));
+      assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterApoePromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+
+      const promotedGlucose = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: glucoseDecision.decision.id,
+      });
+
+      const afterGlucosePromotion = await getPatientSnapshot();
+      assert.equal(promotedGlucose.alreadyPromoted, false);
+      assert.equal(promotedGlucose.measurement.canonicalCode, "fasting_glucose");
+      assert.equal(promotedGlucose.measurement.value, 97.3);
+      assert.equal(promotedGlucose.measurement.unit, "mg/dL");
+      assert.equal(promotedGlucose.measurement.textValue, undefined);
+      assert.ok(promotedGlucose.measurement.interpretation.includes("normalized preventive-health measurement"));
+      assertCountDelta(countSnapshot(afterApoePromotion), countSnapshot(afterGlucosePromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+
+      const persistedApoeMeasurement = afterGlucosePromotion.patient.measurements.find(
+        (measurement) => measurement.id === promotedApoe.measurement.id,
+      );
+      assert.ok(persistedApoeMeasurement);
+      assert.equal(persistedApoeMeasurement.textValue, "e3/e4");
+
+      const persistedGlucoseMeasurement = afterGlucosePromotion.patient.measurements.find(
+        (measurement) => measurement.id === promotedGlucose.measurement.id,
+      );
+      assert.ok(persistedGlucoseMeasurement);
+      assert.equal(persistedGlucoseMeasurement.value, 97.3);
+      assert.equal(persistedGlucoseMeasurement.unit, "mg/dL");
+
+      assert.ok(
+        afterGlucosePromotion.patient.timeline.some((event) =>
+          event.detail.includes("apoe_genotype as ApoE Genotype e3/e4"),
+        ),
+      );
+      assert.ok(
+        afterGlucosePromotion.patient.timeline.some((event) =>
+          event.detail.includes("fasting_glucose as Fasting Glucose 97.3 mg/dL"),
+        ),
+      );
     },
   },
 ];
