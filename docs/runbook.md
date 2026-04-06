@@ -104,6 +104,7 @@ This runs:
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 - browser parity verification now reruns the same clinician workflow against file and Postgres with shared ZIP fixture bytes, so normalized persisted state comparison includes parent archive checksums when `DATABASE_URL` is configured
+- the file-backed functional and browser runners now wait for the Next server to exit before restoring local state, which prevents transient `data/store.json` drift during back-to-back verification runs
 
 For the functional suite only:
 

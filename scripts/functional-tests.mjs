@@ -29,6 +29,35 @@ function log(step, detail) {
   console.log(`[functional-tests:${backend}] ${step}: ${detail}`);
 }
 
+async function stopServer(server) {
+  if (server.exitCode !== null) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(undefined);
+    };
+
+    const timeout = setTimeout(() => {
+      server.kill("SIGKILL");
+      finish();
+    }, 5000);
+
+    server.once("exit", () => {
+      clearTimeout(timeout);
+      finish();
+    });
+
+    server.kill("SIGTERM");
+  });
+}
+
 function extensionOf(filename) {
   return path.extname(filename).toLowerCase();
 }
@@ -1770,8 +1799,7 @@ async function main() {
 
     log("verification", `${scenarios.length} functional scenarios passed`);
   } finally {
-    server.kill("SIGTERM");
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await stopServer(server);
     await backendController.cleanup();
     await rm(tempDir, { recursive: true, force: true });
 

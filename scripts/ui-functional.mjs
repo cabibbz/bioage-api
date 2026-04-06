@@ -29,6 +29,35 @@ function log(step, detail) {
   console.log(`[ui-functional:${backend}] ${step}: ${detail}`);
 }
 
+async function stopServer(server) {
+  if (server.exitCode !== null) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(undefined);
+    };
+
+    const timeout = setTimeout(() => {
+      server.kill("SIGKILL");
+      finish();
+    }, 5000);
+
+    server.once("exit", () => {
+      clearTimeout(timeout);
+      finish();
+    });
+
+    server.kill("SIGTERM");
+  });
+}
+
 async function waitForServer() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
@@ -2141,8 +2170,7 @@ async function main() {
     log("verification", "page interactions, error handling, and persisted state matched");
   } finally {
     await browser?.close();
-    server.kill("SIGTERM");
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await stopServer(server);
     await backendHandle.cleanup();
     await rm(tempDir, { recursive: true, force: true });
 
