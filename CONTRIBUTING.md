@@ -35,6 +35,7 @@ Minimum expectation:
 If Postgres is available for the session, the session is not complete until the Postgres path has been exercised.
 
 Once a full functionality update is confirmed by `npm run verify:meta` and any required Postgres checks, commit it and push it to GitHub in the same pass. Do not leave fully verified functionality sitting only in the local worktree.
+`npm run verify:meta` must also leave the git worktree unchanged relative to how it started.
 
 ## Compaction Rule
 

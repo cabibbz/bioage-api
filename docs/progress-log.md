@@ -22,6 +22,7 @@
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
 - added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text
 - changed verification to check Postgres seed drift without rewriting `db/seed-from-store.sql`, and made typecheck non-incremental so `verify:meta` no longer dirties tracked artifacts
+- made `verify:meta` compare git status before and after the run so verification now fails if it mutates the worktree relative to its starting state
 
 ### 2026-04-05
 
