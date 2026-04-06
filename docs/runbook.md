@@ -82,6 +82,7 @@ This runs:
 - the promotion workbench now only queues accepted mapped decisions whose parser candidate is numeric, and the browser suite verifies a mapped text-valued FHIR observation stays out of that queue
 - promoted review decisions are now immutable: the API suite verifies post-promotion review-save attempts fail with `400` and leave persisted state unchanged, while the browser suite verifies promoted candidates disappear from the editable review queue
 - the report workbench now returns a stable client-side error for malformed JSON before issuing a request, and the browser suite verifies both that local parse guard and the server-side `entries must be an array` contract
+- the intervention workbench now returns a stable client-side error for blank or invalid dates before issuing a request, and the browser suite verifies both that local date guard and the server-side required-field contract
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 

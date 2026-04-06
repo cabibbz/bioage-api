@@ -1219,6 +1219,17 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
     log("report", "ran report normalization through the UI");
 
+    const interventionDateErrorSnapshot = await loadPersistedSnapshot();
+    await interventionSection.locator("label").filter({ hasText: "Date" }).locator("input").fill("");
+    await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
+    await interventionSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Choose a valid date first."' })
+      .waitFor();
+    errorWorkbenchHeadings.add("Tag a protocol change");
+    await assertUiStateUnchangedAfterError(page, sections, interventionDateErrorSnapshot, discoveredWorkbenchHeadings);
+    log("intervention", "rejected a blank intervention date locally without mutating persisted state");
+
     const interventionErrorSnapshot = await loadPersistedSnapshot();
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("   ");
     await interventionSection
@@ -1231,7 +1242,6 @@ async function main() {
       .locator("pre")
       .filter({ hasText: '"error": "patientId, title, detail, and occurredAt are required."' })
       .waitFor();
-    errorWorkbenchHeadings.add("Tag a protocol change");
     await assertUiStateUnchangedAfterError(page, sections, interventionErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected blank intervention fields without mutating persisted state");
 

@@ -23,6 +23,17 @@ export function InterventionWorkbench() {
     setResult("");
 
     try {
+      if (!occurredAt) {
+        setResult(JSON.stringify({ error: "Choose a valid date first." }, null, 2));
+        return;
+      }
+
+      const occurredAtDate = new Date(`${occurredAt}T09:00:00.000Z`);
+      if (Number.isNaN(occurredAtDate.getTime())) {
+        setResult(JSON.stringify({ error: "Choose a valid date first." }, null, 2));
+        return;
+      }
+
       const response = await fetch("/api/intake/intervention", {
         method: "POST",
         headers: {
@@ -32,7 +43,7 @@ export function InterventionWorkbench() {
           patientId: demoIntervention.patientId,
           title,
           detail,
-          occurredAt: new Date(`${occurredAt}T09:00:00.000Z`).toISOString(),
+          occurredAt: occurredAtDate.toISOString(),
         }),
       });
 
