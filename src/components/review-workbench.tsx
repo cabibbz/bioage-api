@@ -60,6 +60,21 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
         decision.parseTaskId === selectedTask?.id && decision.candidateId === selectedCandidate?.id,
     ) ?? null;
 
+  function applyReviewFormState(decision: StoredReviewDecision | null) {
+    if (decision) {
+      setAction(decision.action);
+      setProposedCanonicalCode(decision.proposedCanonicalCode ?? "");
+      setReviewerName(decision.reviewerName);
+      setNote(decision.note ?? defaultReviewNote);
+      return;
+    }
+
+    setAction("accept");
+    setProposedCanonicalCode("");
+    setReviewerName(defaultReviewerName);
+    setNote(defaultReviewNote);
+  }
+
   useEffect(() => {
     if (!selectedTask) {
       if (selectedTaskId !== "") {
@@ -83,25 +98,11 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
 
   useEffect(() => {
     if (!selectedTask || !selectedCandidate) {
-      setAction("accept");
-      setProposedCanonicalCode("");
-      setReviewerName(defaultReviewerName);
-      setNote(defaultReviewNote);
+      applyReviewFormState(null);
       return;
     }
 
-    if (selectedDecision) {
-      setAction(selectedDecision.action);
-      setProposedCanonicalCode(selectedDecision.proposedCanonicalCode ?? "");
-      setReviewerName(selectedDecision.reviewerName);
-      setNote(selectedDecision.note ?? defaultReviewNote);
-      return;
-    }
-
-    setAction("accept");
-    setProposedCanonicalCode("");
-    setReviewerName(defaultReviewerName);
-    setNote(defaultReviewNote);
+    applyReviewFormState(selectedDecision);
   }, [selectedCandidate?.id, selectedDecision?.id, selectedDecision?.updatedAt, selectedTask?.id]);
 
   useEffect(() => {
@@ -156,8 +157,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
   }
 
   function resetDemo() {
-    setSelectedTaskId(candidateTasks[0]?.id ?? "");
-    setSelectedCandidateId(candidateTasks[0]?.candidates[0]?.id ?? "");
+    applyReviewFormState(selectedDecision);
     setResult("");
   }
 

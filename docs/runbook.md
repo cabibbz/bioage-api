@@ -79,6 +79,7 @@ This runs:
 - the browser suite now also revisits the review workbench after promotion overflow so non-accept actions are exercised after the accepted queue has been drained
 - the browser suite now also updates an existing rejected decision back to `accept`, verifies the same review record is updated in place, confirms the pending promotion queue repopulates, and then promotes it without duplicating review decisions
 - the review workbench now hydrates its form from any existing saved decision for the selected candidate, and the browser suite verifies those reopened values before updating the decision again
+- the review workbench reset path now restores the current candidate's persisted or default form state without changing selection, and the browser suite verifies unsaved edits are discarded locally
 - canonical mappings are now accept-only: non-accept review saves strip any stale mapping input, the review UI clears the mapping when the action changes away from `accept`, and both suites verify that contract
 - the promotion workbench now only queues accepted mapped decisions whose parser candidate is numeric, and the browser suite verifies a mapped text-valued FHIR observation stays out of that queue
 - promoted review decisions are now immutable: the API suite verifies post-promotion review-save attempts fail with `400` and leave persisted state unchanged, while the browser suite verifies promoted candidates disappear from the editable review queue

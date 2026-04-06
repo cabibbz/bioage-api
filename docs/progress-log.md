@@ -38,6 +38,7 @@
 - fixed the intervention workbench so blank or invalid dates get a deterministic client-side error instead of a raw date exception, and added browser coverage for both the local date guard and the server-side required-field path
 - fixed the document and review workbenches so blank source-system and blank reviewer inputs fail locally with stable errors instead of round-tripping to backend required-field validation
 - fixed the report and intervention workbenches so non-array report entries plus blank intervention title/detail now fail locally with stable errors instead of round-tripping to backend validation
+- fixed the review workbench reset path so it restores the current candidate's persisted/default state instead of leaving unsaved edits behind, and added browser coverage for that reset behavior
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario

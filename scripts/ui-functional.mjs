@@ -959,6 +959,22 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, afterTextReview);
     log("review", "accepted a text-valued observation and verified it stayed out of the promotion queue");
 
+    await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("reject");
+    await waitForReviewMappingState(reviewSection, "", true);
+    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("Unsaved UI reviewer");
+    await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill("Unsaved UI note");
+    await reviewSection.getByRole("button", { name: "Reset demo", exact: true }).click();
+    await assertReviewFormState(reviewSection, {
+      action: "accept",
+      reviewerName: nonNumericObservation.reviewerName,
+      proposedCanonicalCode: nonNumericObservation.proposedCanonicalCode,
+      note: nonNumericObservation.note,
+    });
+    assert.equal(await parseTaskSelect.inputValue(), nonNumericReviewTarget.task.id);
+    assert.equal(await candidateSelect.inputValue(), nonNumericReviewTarget.candidate.id);
+    await assertDashboardMatchesSnapshot(sections, afterTextReview);
+    log("review", "reset unsaved review edits back to the persisted decision state without changing selection");
+
     for (const target of acceptedReviewTargets) {
       const snapshotBeforeReview = await loadPersistedSnapshot();
       const resolvedTarget = resolveCsvReviewTarget(
