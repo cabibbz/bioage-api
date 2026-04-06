@@ -14,6 +14,7 @@ export function DocumentUploadWorkbench() {
   const router = useRouter();
   const [sourceSystem, setSourceSystem] = useState(demoSourceSystem);
   const [selectedFile, setSelectedFile] = useState<SelectedFileState | null>(null);
+  const [fileInputResetKey, setFileInputResetKey] = useState(0);
   const [result, setResult] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -75,6 +76,7 @@ export function DocumentUploadWorkbench() {
   function resetDemo() {
     setSourceSystem(demoSourceSystem);
     setSelectedFile(null);
+    setFileInputResetKey((current) => current + 1);
     setResult("");
   }
 
@@ -107,6 +109,7 @@ export function DocumentUploadWorkbench() {
         <span className="detail-label">File</span>
         <input
           accept={acceptedTypes}
+          key={fileInputResetKey}
           onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
           type="file"
         />

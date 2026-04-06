@@ -768,6 +768,18 @@ async function main() {
     await assertUiStateUnchangedAfterError(page, sections, documentErrorSnapshot, discoveredWorkbenchHeadings);
     log("document", "rejected a blank source system locally without mutating persisted state");
 
+    await documentSection.getByRole("button", { name: "Reset", exact: true }).click();
+    assert.equal(
+      await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").inputValue(),
+      "Manual clinic upload",
+    );
+    await documentSection
+      .locator(".field-note")
+      .filter({ hasText: "Choose a PDF, image, JSON, XML, CSV, XLS/XLSX, TXT, HTML, or ZIP file." })
+      .waitFor();
+    assert.equal(await documentSection.locator('input[type="file"]').inputValue(), "");
+    log("document", "reset the document workbench back to its default source-system and cleared file input state");
+
     successfulWorkbenchHeadings.add("Upload a source file");
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);
     await documentSection.locator('input[type="file"]').setInputFiles({

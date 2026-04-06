@@ -72,6 +72,7 @@ This runs:
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
 - live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
 - the document workbench now returns a stable client-side error for blank source-system input and the review workbench does the same for blank reviewer input, and the browser suite verifies both local guards
+- the document workbench reset path now restores the default source-system and clears the actual file input, and the browser suite verifies that reset behavior before continuing the upload flow
 - the browser document path now uploads multiple ZIP archives and verifies extracted-child rendering plus parser-list overflow behavior on `/`
 - the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
 - the browser suite now creates enough accepted reviews and promotions to verify overflow behavior for the capped recent-decisions and recent-promotions feeds
