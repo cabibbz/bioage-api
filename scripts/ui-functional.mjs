@@ -12,6 +12,13 @@ const uploadsPath = path.join(repoRoot, "data", "uploads");
 const nextCli = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
 const port = Number(process.env.UI_FUNCTIONAL_PORT?.trim() || "3160");
 const baseUrl = `http://127.0.0.1:${port}`;
+const workbenchHeadings = new Set([
+  "Upload a source file",
+  "Adjudicate parser candidates",
+  "Promote accepted decisions",
+  "Report intake and normalization",
+  "Tag a protocol change",
+]);
 
 function log(step, detail) {
   console.log(`[ui-functional:file] ${step}: ${detail}`);
@@ -154,6 +161,24 @@ async function mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeading
   }
 }
 
+async function discoverDashboardSectionHeadings(page) {
+  const headings = await page.locator("section, aside").evaluateAll((elements) =>
+    elements
+      .flatMap((element) => {
+        if (element.querySelector("input, select, textarea, button")) {
+          return [];
+        }
+
+        const heading = element.querySelector(".section-title");
+        const text = heading?.textContent?.trim();
+        return text ? [text] : [];
+      })
+      .sort(),
+  );
+
+  return [...new Set(headings)].filter((heading) => !workbenchHeadings.has(heading)).sort();
+}
+
 function csvFixture() {
   return Buffer.from(
     [
@@ -203,19 +228,38 @@ async function main() {
     await page.getByRole("heading", { name: "Upload a source file", exact: true }).waitFor();
     await page.getByRole("heading", { name: "Report intake and normalization", exact: true }).waitFor();
     await page.getByRole("heading", { name: "Tag a protocol change", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "What the first customers are buying", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Signals needing clinician review", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Modality-aware evidence cards", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Clinician prep", exact: true }).waitFor();
     const discoveredWorkbenchHeadings = new Set();
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    const discoveredDashboardHeadings = await discoverDashboardSectionHeadings(page);
     const visitedWorkbenchHeadings = new Set();
+    const coveredDashboardHeadings = new Set([
+      "What the first customers are buying",
+      "Signals needing clinician review",
+      "Clinician prep",
+    ]);
     log("page", "workbenches rendered");
 
     const sourceDocumentsSection = sectionByHeading(page, "Stored source documents");
     const parseTasksSection = sectionByHeading(page, "Document parse tasks");
     const timelineSection = sectionByHeading(page, "Interventions and evidence windows");
+    const signalBoardSection = sectionByHeading(page, "Modality-aware evidence cards");
+    const clinicianPrepSection = sectionByHeading(page, "Clinician prep");
     const documentSection = sectionByHeading(page, "Upload a source file");
     const reviewSection = sectionByHeading(page, "Adjudicate parser candidates");
     const promotionSection = sectionByHeading(page, "Promote accepted decisions");
     const reportSection = sectionByHeading(page, "Report intake and normalization");
     const interventionSection = sectionByHeading(page, "Tag a protocol change");
+
+    await clinicianPrepSection
+      .getByText("Longevity follow-up after sleep, resistance training, and omega-3 protocol.", { exact: true })
+      .waitFor();
+    await signalBoardSection.getByText("Epigenetic Biological Age", { exact: true }).waitFor();
+    coveredDashboardHeadings.add("Modality-aware evidence cards");
+    coveredDashboardHeadings.add("Clinician prep");
 
     const documentFilename = "ui-functional.csv";
     visitedWorkbenchHeadings.add("Upload a source file");
@@ -232,6 +276,8 @@ async function main() {
     await sourceDocumentsSection.getByText(documentFilename, { exact: true }).waitFor();
     await parseTasksSection.getByText(documentFilename, { exact: true }).waitFor();
     await parseTasksSection.getByText("csv_table", { exact: true }).waitFor();
+    coveredDashboardHeadings.add("Stored source documents");
+    coveredDashboardHeadings.add("Document parse tasks");
     log("document", "uploaded CSV through the UI and observed parser task on the page");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
@@ -250,6 +296,7 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await reviewSection.getByText("UI clinician").waitFor();
     await parseTasksSection.getByText("1 reviewed").waitFor();
+    coveredDashboardHeadings.add("Document parse tasks");
     log("review", "accepted and mapped a parser candidate through the UI");
 
     const promotionSelect = promotionSection.locator("select").first();
@@ -261,6 +308,9 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await promotionSection.getByText("ApoB", { exact: true }).waitFor();
     await timelineSection.getByText("ApoB promoted into canonical record").waitFor();
+    await signalBoardSection.getByText("ApoB", { exact: true }).waitFor();
+    coveredDashboardHeadings.add("Interventions and evidence windows");
+    coveredDashboardHeadings.add("Modality-aware evidence cards");
     log("promotion", "promoted the accepted review decision through the UI");
 
     visitedWorkbenchHeadings.add("Report intake and normalization");
@@ -270,6 +320,7 @@ async function main() {
     await refreshDashboard(page);
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("Hurdle report normalized").waitFor();
+    coveredDashboardHeadings.add("Interventions and evidence windows");
     log("report", "ran report normalization through the UI");
 
     visitedWorkbenchHeadings.add("Tag a protocol change");
@@ -282,6 +333,7 @@ async function main() {
     await refreshDashboard(page);
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("UI intervention checkpoint").waitFor();
+    coveredDashboardHeadings.add("Interventions and evidence windows");
     log("intervention", "saved an intervention through the UI");
 
     const patientResponse = await page.context().request.get(`${baseUrl}/api/patients/${patientId}`);
@@ -293,6 +345,7 @@ async function main() {
     assert.ok(snapshot.reportIngestions.some((ingestion) => ingestion.vendor === "Hurdle"));
     assert.ok(snapshot.patient.timeline.some((event) => event.title === "UI intervention checkpoint"));
     assert.deepEqual([...visitedWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
+    assert.deepEqual([...coveredDashboardHeadings].sort(), discoveredDashboardHeadings);
     log("verification", "page interactions and persisted state matched");
   } finally {
     await browser?.close();

@@ -20,6 +20,7 @@
 - updated the contributor workflow so fully verified functionality changes are committed and pushed to GitHub in the same pass
 - added an API route-method inventory guard so the functional suite fails if any exported `app/api` route lacks a claiming scenario
 - added a UI workbench inventory guard so the browser suite fails if `/` gains a new interactive form without an exercised path
+- added dashboard read-panel coverage so the browser suite also claims the non-form surfaces on `/` instead of treating them as incidental text
 
 ### 2026-04-05
 
