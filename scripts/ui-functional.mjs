@@ -4,6 +4,7 @@ import os from "node:os";
 import { mkdtemp, readdir, rm, copyFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import JSZip from "jszip";
 import { loadPersistedPatientSnapshot } from "./lib/persisted-patient-snapshot.mjs";
 
 const repoRoot = process.cwd();
@@ -146,6 +147,18 @@ function countImprovingSignals(snapshot) {
   return snapshot.patient.measurements.filter((measurement) => measurement.evidenceStatus === "improving").length;
 }
 
+function formatDate(value) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function normalizeWhitespace(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 async function loadPersistedSnapshot() {
   const snapshot = await loadPersistedPatientSnapshot({
     backend: "file",
@@ -165,6 +178,242 @@ async function expectDetailCardValue(section, label, value) {
   const card = section.locator(".detail-card").filter({ hasText: label }).first();
   await card.waitFor();
   assert.equal((await card.locator(".summary-value").first().textContent())?.trim(), value);
+}
+
+function topLevelSourceDocuments(snapshot) {
+  return snapshot.sourceDocuments.filter((document) => !document.parentDocumentId).slice(0, 4);
+}
+
+function childSourceDocuments(snapshot) {
+  return snapshot.sourceDocuments.filter((document) => document.parentDocumentId).slice(0, 4);
+}
+
+function reviewCountsByTask(snapshot) {
+  return snapshot.reviewDecisions.reduce((counts, decision) => {
+    counts[decision.parseTaskId] = (counts[decision.parseTaskId] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+async function assertSignalCardsMatchSnapshot(section, snapshot) {
+  const expectedSignals = snapshot.patient.measurements.slice(0, 3);
+  const cards = section.locator(".signal-card");
+  assert.equal(await cards.count(), expectedSignals.length);
+
+  for (const [index, measurement] of expectedSignals.entries()) {
+    const card = cards.nth(index);
+    assert.equal((await card.locator(".signal-title").textContent())?.trim(), measurement.title);
+    assert.equal((await card.locator(".signal-meta .pill").first().textContent())?.trim(), measurement.evidenceStatus);
+
+    const sourceText = normalizeWhitespace((await card.locator(".signal-source").textContent()) ?? "");
+    assert.ok(sourceText.includes(measurement.sourceVendor));
+    assert.ok(sourceText.toLowerCase().includes(measurement.modality));
+
+    assert.equal(
+      (await card.locator(".signal-value").textContent())?.trim(),
+      `${measurement.value}${measurement.unit ? ` ${measurement.unit}` : ""}`,
+    );
+
+    if (measurement.deltaLabel) {
+      assert.equal((await card.locator(".signal-delta").textContent())?.trim(), measurement.deltaLabel);
+    } else {
+      assert.equal(await card.locator(".signal-delta").count(), 0);
+    }
+
+    const footText = normalizeWhitespace((await card.locator(".signal-foot").textContent()) ?? "");
+    assert.ok(footText.includes(measurement.interpretation));
+    assert.ok(footText.includes(`${measurement.confidenceLabel} confidence`));
+  }
+}
+
+async function assertSourceDocumentsMatchSnapshot(section, snapshot) {
+  const topLevelDocuments = topLevelSourceDocuments(snapshot);
+  const childDocuments = childSourceDocuments(snapshot);
+  const childCounts = snapshot.sourceDocuments.reduce((counts, document) => {
+    if (document.parentDocumentId) {
+      counts[document.parentDocumentId] = (counts[document.parentDocumentId] ?? 0) + 1;
+    }
+    return counts;
+  }, {});
+
+  if (snapshot.sourceDocuments.length === 0) {
+    await section.getByText("No uploads yet", { exact: true }).waitFor();
+    return;
+  }
+
+  const topLevelCards = section.locator("xpath=.//div[contains(@class,'detail-stack')][1]/article[contains(@class,'detail-card')]");
+  assert.equal(await topLevelCards.count(), topLevelDocuments.length);
+
+  for (const [index, document] of topLevelDocuments.entries()) {
+    const card = topLevelCards.nth(index);
+    assert.equal((await card.locator(".detail-label").first().textContent())?.trim(), document.classification);
+    assert.equal((await card.locator(".signal-title").textContent())?.trim(), document.originalFilename);
+    assert.equal((await card.locator(".pill").first().textContent())?.trim(), document.status);
+
+    const summaryText = normalizeWhitespace((await card.locator(".summary-note").textContent()) ?? "");
+    assert.ok(summaryText.includes(document.sourceSystem));
+    assert.ok(summaryText.includes(formatDate(document.receivedAt)));
+    assert.ok(summaryText.includes(`${document.byteSize} bytes`));
+
+    const detailText = normalizeWhitespace((await card.locator(".detail-copy").textContent()) ?? "");
+    if (document.archiveEntries?.length) {
+      assert.equal(
+        detailText,
+        `${document.archiveEntries.length} archive entries indexed, ${childCounts[document.id] ?? 0} extracted child documents.`,
+      );
+    } else {
+      assert.equal(detailText, `Stored at ${document.relativePath} with checksum tracking ready for provenance.`);
+    }
+  }
+
+  if (childDocuments.length === 0) {
+    assert.equal(await section.getByText("Recent extracted children", { exact: true }).count(), 0);
+    return;
+  }
+
+  await section.getByText("Recent extracted children", { exact: true }).waitFor();
+  const childCards = section.locator("xpath=.//div[contains(@class,'detail-stack')][2]/article[contains(@class,'detail-card')]");
+  assert.equal(await childCards.count(), childDocuments.length);
+
+  for (const [index, document] of childDocuments.entries()) {
+    const card = childCards.nth(index);
+    assert.equal((await card.locator(".signal-title").textContent())?.trim(), document.originalFilename);
+    assert.equal((await card.locator(".summary-note").textContent())?.trim(), document.archiveEntryPath);
+    assert.equal((await card.locator(".pill").first().textContent())?.trim(), document.classification);
+  }
+}
+
+async function assertParseTasksMatchSnapshot(section, snapshot) {
+  const expectedTasks = snapshot.parseTasks.slice(0, 5);
+  const reviewCounts = reviewCountsByTask(snapshot);
+
+  if (snapshot.parseTasks.length === 0) {
+    await section.getByText("No parse tasks yet", { exact: true }).waitFor();
+    return;
+  }
+
+  const taskCards = section.locator("xpath=.//div[contains(@class,'detail-stack')][1]/article[contains(@class,'detail-card')]");
+  assert.equal(await taskCards.count(), expectedTasks.length);
+
+  for (const [index, task] of expectedTasks.entries()) {
+    const card = taskCards.nth(index);
+    assert.equal((await card.locator(".detail-label").first().textContent())?.trim(), task.parser);
+    assert.equal((await card.locator(".signal-meta .signal-title").first().textContent())?.trim(), task.sourceDocumentFilename);
+    assert.equal((await card.locator(".pill").first().textContent())?.trim(), task.status);
+
+    const summaryNotes = card.locator(".summary-note");
+    const metaSummary = normalizeWhitespace((await summaryNotes.nth(0).textContent()) ?? "");
+    assert.ok(metaSummary.includes(task.mode));
+    assert.ok(metaSummary.includes(formatDate(task.updatedAt)));
+    assert.ok(metaSummary.includes(`${task.candidateCount} candidates`));
+    assert.ok(metaSummary.includes(`${reviewCounts[task.id] ?? 0} reviewed`));
+
+    assert.equal((await card.locator(".detail-copy").first().textContent())?.trim(), task.summary);
+    assert.equal((await summaryNotes.nth(1).textContent())?.trim(), task.detail);
+
+    const expectedMetadata = task.metadata.slice(0, 3);
+    for (const metadataItem of expectedMetadata) {
+      const metadataCard = card
+        .getByText(metadataItem.label, { exact: true })
+        .locator("xpath=ancestor::div[contains(@class,'detail-card')][1]");
+      await metadataCard.waitFor();
+      assert.equal((await metadataCard.locator(".detail-label").textContent())?.trim(), metadataItem.label);
+      assert.equal((await metadataCard.locator(".detail-copy").textContent())?.trim(), metadataItem.value);
+    }
+
+    const expectedCandidates = task.candidates.slice(0, 3);
+    if (expectedCandidates.length === 0) {
+      assert.equal(await card.getByText("Candidate values", { exact: true }).count(), 0);
+      continue;
+    }
+
+    await card.getByText("Candidate values", { exact: true }).waitFor();
+    for (const candidate of expectedCandidates) {
+      const candidateCard = card
+        .getByText(candidate.displayName, { exact: true })
+        .locator("xpath=ancestor::div[contains(@class,'detail-card')][1]");
+      await candidateCard.waitFor();
+      assert.equal((await candidateCard.locator(".signal-title").textContent())?.trim(), candidate.displayName);
+      assert.equal((await candidateCard.locator(".pill").first().textContent())?.trim(), candidate.valueLabel);
+      assert.equal((await candidateCard.locator(".summary-note").textContent())?.trim(), candidate.sourcePath);
+
+      const detailCopyCount = await candidateCard.locator(".detail-copy").count();
+      const hasDetailCopy = Boolean(candidate.loincCode || candidate.referenceRange);
+      assert.equal(detailCopyCount > 0, hasDetailCopy);
+      if (hasDetailCopy) {
+        const detailText = normalizeWhitespace((await candidateCard.locator(".detail-copy").textContent()) ?? "");
+        if (candidate.loincCode) {
+          assert.ok(detailText.includes(`LOINC ${candidate.loincCode}`));
+        }
+        if (candidate.referenceRange) {
+          assert.ok(detailText.includes(candidate.referenceRange));
+        }
+      }
+    }
+  }
+}
+
+async function assertTimelineMatchesSnapshot(section, snapshot) {
+  const items = section.locator(".timeline-item");
+  assert.equal(await items.count(), snapshot.patient.timeline.length);
+
+  for (const [index, event] of snapshot.patient.timeline.entries()) {
+    const item = items.nth(index);
+    assert.equal((await item.locator(".timeline-date").textContent())?.trim(), formatDate(event.occurredAt));
+    assert.equal((await item.locator(".timeline-title").textContent())?.trim(), event.title);
+    assert.equal((await item.locator(".timeline-copy").textContent())?.trim(), event.detail);
+  }
+}
+
+async function assertRecentDecisionsMatchSnapshot(section, snapshot) {
+  const expectedDecisions = snapshot.reviewDecisions.slice(0, 4);
+  if (expectedDecisions.length === 0) {
+    assert.equal(await section.getByText("Recent decisions", { exact: true }).count(), 0);
+    return;
+  }
+
+  await section.getByText("Recent decisions", { exact: true }).waitFor();
+  const decisionCards = section.locator("xpath=.//div[contains(@class,'detail-stack')][1]/article[contains(@class,'detail-card')]");
+  assert.equal(await decisionCards.count(), expectedDecisions.length);
+
+  for (const [index, decision] of expectedDecisions.entries()) {
+    const card = decisionCards.nth(index);
+    assert.equal((await card.locator(".signal-title").textContent())?.trim(), decision.candidateDisplayName);
+    const summaryText = normalizeWhitespace((await card.locator(".summary-note").first().textContent()) ?? "");
+    assert.ok(summaryText.includes(decision.reviewerName));
+    assert.ok(summaryText.includes(formatDate(decision.updatedAt)));
+    assert.equal((await card.locator(".pill").first().textContent())?.trim(), decision.action);
+    assert.equal(
+      (await card.locator(".detail-copy").textContent())?.trim(),
+      `${decision.candidateValueLabel}${decision.proposedTitle ? ` -> ${decision.proposedTitle}` : ""}`,
+    );
+    if (decision.note) {
+      assert.equal((await card.locator(".summary-note").nth(1).textContent())?.trim(), decision.note);
+    } else {
+      assert.equal(await card.locator(".summary-note").count(), 1);
+    }
+  }
+}
+
+async function assertRecentPromotionsMatchSnapshot(section, snapshot) {
+  const expectedPromotions = snapshot.measurementPromotions.slice(0, 4);
+  if (expectedPromotions.length === 0) {
+    assert.equal(await section.getByText("Recent promotions", { exact: true }).count(), 0);
+    return;
+  }
+
+  await section.getByText("Recent promotions", { exact: true }).waitFor();
+  const promotionCards = section.locator("xpath=.//div[contains(@class,'detail-stack')][1]/article[contains(@class,'detail-card')]");
+  assert.equal(await promotionCards.count(), expectedPromotions.length);
+
+  for (const [index, promotion] of expectedPromotions.entries()) {
+    const card = promotionCards.nth(index);
+    assert.equal((await card.locator(".signal-title").textContent())?.trim(), promotion.title);
+    const summaryText = normalizeWhitespace((await card.locator(".summary-note").textContent()) ?? "");
+    assert.ok(summaryText.includes(promotion.canonicalCode));
+    assert.ok(summaryText.includes(formatDate(promotion.promotedAt)));
+    assert.equal((await card.locator(".pill").first().textContent())?.trim(), promotion.modality);
+  }
 }
 
 async function assertDashboardMatchesSnapshot(sections, snapshot) {
@@ -187,12 +436,12 @@ async function assertDashboardMatchesSnapshot(sections, snapshot) {
       snapshot.patient.measurements.filter((measurement) => measurement.evidenceStatus === "conflicted").length,
     ),
   );
-
-  const renderedSignalTitles = (await sections.signalBoardSection.locator(".signal-card .signal-title").allTextContents()).map(
-    (title) => title.trim(),
-  );
-  const expectedSignalTitles = snapshot.patient.measurements.slice(0, 3).map((measurement) => measurement.title);
-  assert.deepEqual(renderedSignalTitles, expectedSignalTitles);
+  await assertSignalCardsMatchSnapshot(sections.signalBoardSection, snapshot);
+  await assertSourceDocumentsMatchSnapshot(sections.sourceDocumentsSection, snapshot);
+  await assertParseTasksMatchSnapshot(sections.parseTasksSection, snapshot);
+  await assertTimelineMatchesSnapshot(sections.timelineSection, snapshot);
+  await assertRecentDecisionsMatchSnapshot(sections.reviewSection, snapshot);
+  await assertRecentPromotionsMatchSnapshot(sections.promotionSection, snapshot);
 }
 
 async function assertUiStateUnchangedAfterError(page, sections, expectedSnapshot, discoveredWorkbenchHeadings) {
@@ -255,6 +504,16 @@ function csvFixture() {
       "C-Reactive Protein,1.1,mg/L,1988-5,2026-04-01T08:00:00.000Z",
     ].join("\n"),
   );
+}
+
+async function zipFixture() {
+  const zip = new JSZip();
+  zip.file("labs/ui-functional-labs.csv", csvFixture());
+  zip.file(
+    "notes/ui-functional-note.txt",
+    "ApoB trend remains the main follow-up target after omega-3 and training changes.",
+  );
+  return zip.generateAsync({ type: "nodebuffer" });
 }
 
 async function main() {
@@ -343,13 +602,16 @@ async function main() {
     coveredDashboardHeadings.add("Clinician prep");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
 
-    const documentFilename = "ui-functional.csv";
+    const documentFilename = "ui-functional.zip";
+    const childCsvFilename = "ui-functional-labs.csv";
+    const childTextFilename = "ui-functional-note.txt";
+    const documentArchive = await zipFixture();
     const documentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("   ");
     await documentSection.locator('input[type="file"]').setInputFiles({
       name: documentFilename,
-      mimeType: "text/csv",
-      buffer: csvFixture(),
+      mimeType: "application/zip",
+      buffer: documentArchive,
     });
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: '"error": "patientId, sourceSystem, and file are required."' }).waitFor();
@@ -361,26 +623,30 @@ async function main() {
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("UI functional upload");
     await documentSection.locator('input[type="file"]').setInputFiles({
       name: documentFilename,
-      mimeType: "text/csv",
-      buffer: csvFixture(),
+      mimeType: "application/zip",
+      buffer: documentArchive,
     });
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: `"originalFilename": "${documentFilename}"` }).waitFor();
     await refreshDashboard(page);
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await sourceDocumentsSection.getByText(documentFilename, { exact: true }).waitFor();
+    await sourceDocumentsSection.getByText(childCsvFilename, { exact: true }).waitFor();
+    await sourceDocumentsSection.getByText(childTextFilename, { exact: true }).waitFor();
     await parseTasksSection.getByText(documentFilename, { exact: true }).waitFor();
-    await parseTasksSection.getByText("csv_table", { exact: true }).waitFor();
+    await parseTasksSection.getByText("archive_manifest", { exact: true }).waitFor();
+    await parseTasksSection.getByText(childCsvFilename, { exact: true }).waitFor();
+    await parseTasksSection.getByText(childTextFilename, { exact: true }).waitFor();
     coveredDashboardHeadings.add("Stored source documents");
     coveredDashboardHeadings.add("Document parse tasks");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
-    log("document", "uploaded CSV through the UI and observed parser task on the page");
+    log("document", "uploaded a ZIP archive through the UI and observed extracted children plus parser tasks on the page");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
     const candidateSelect = reviewSection.locator("select").nth(1);
     const reviewErrorSnapshot = await loadPersistedSnapshot();
-    await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
-    await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
+    await waitForSelectOptionContaining(parseTaskSelect, childCsvFilename);
+    await parseTaskSelect.selectOption({ label: `${childCsvFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
     await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("   ");
@@ -394,8 +660,8 @@ async function main() {
     log("review", "rejected blank reviewer input without mutating persisted state");
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
-    await waitForSelectOptionContaining(parseTaskSelect, documentFilename);
-    await parseTaskSelect.selectOption({ label: `${documentFilename} | csv_table` });
+    await waitForSelectOptionContaining(parseTaskSelect, childCsvFilename);
+    await parseTaskSelect.selectOption({ label: `${childCsvFilename} | csv_table` });
     await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
     await candidateSelect.selectOption({ label: "ApoB | 78 mg/dL" });
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician");
