@@ -23,6 +23,10 @@ const port = Number(
 );
 const baseUrl = `http://127.0.0.1:${port}`;
 const parserContract = JSON.parse(await readFile(parserContractPath, "utf8"));
+const canonicalCodeByCandidateDisplayName = new Map([
+  ["ApoB", "apob"],
+  ["C-Reactive Protein", "inflammation_crp"],
+]);
 
 function log(step, detail) {
   console.log(`[functional-tests:${backend}] ${step}: ${detail}`);
@@ -863,6 +867,23 @@ function findReviewableCandidate(parseTasks, predicate) {
   return null;
 }
 
+function findPromotableReviewTarget(parseTasks) {
+  for (const task of parseTasks) {
+    const candidate = task.candidates.find(
+      (entry) => entry.numericValue !== undefined && canonicalCodeByCandidateDisplayName.has(entry.displayName),
+    );
+    if (candidate) {
+      return {
+        task,
+        candidate,
+        proposedCanonicalCode: canonicalCodeByCandidateDisplayName.get(candidate.displayName),
+      };
+    }
+  }
+
+  return null;
+}
+
 function requireDocumentScenario(name) {
   const fixture = documentScenarios.find((entry) => entry.name === name);
   assert.ok(fixture, `Document scenario ${name} should exist`);
@@ -1303,7 +1324,7 @@ const scenarios = [
     coverageType: "mixed",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
-      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
+      const target = findPromotableReviewTarget(upload.parseTasks);
       assert.ok(target);
 
       const afterUpload = await getPatientSnapshot();
@@ -1314,7 +1335,7 @@ const scenarios = [
         action: "accept",
         reviewerName: "Functional reviewer",
         note: "Looks clean for promotion.",
-        proposedCanonicalCode: "apob",
+        proposedCanonicalCode: target.proposedCanonicalCode,
       });
 
       const afterFirstDecision = await getPatientSnapshot();
@@ -1323,7 +1344,7 @@ const scenarios = [
         timeline: 1,
       });
       assert.equal(firstDecision.decision.action, "accept");
-      assert.equal(firstDecision.decision.proposedCanonicalCode, "apob");
+      assert.equal(firstDecision.decision.proposedCanonicalCode, target.proposedCanonicalCode);
 
       const updatedDecision = await postJson("/api/review/decision", {
         patientId,
@@ -1370,7 +1391,7 @@ const scenarios = [
     coverageType: "error",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
-      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
+      const target = findPromotableReviewTarget(upload.parseTasks);
       assert.ok(target);
 
       const review = await postJson("/api/review/decision", {
@@ -1380,7 +1401,7 @@ const scenarios = [
         action: "accept",
         reviewerName: "Functional reviewer",
         note: "Accepting before promotion immutability check.",
-        proposedCanonicalCode: "apob",
+        proposedCanonicalCode: target.proposedCanonicalCode,
       });
 
       await postJson("/api/review/promote", {
@@ -1447,7 +1468,7 @@ const scenarios = [
       assert.equal(missingDecision.error, "Review decision missing-decision was not found.");
 
       const upload = await uploadDocumentFixture(requireDocumentScenario("fhir-bundle"));
-      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
+      const target = findPromotableReviewTarget(upload.parseTasks);
       assert.ok(target);
 
       const review = await postJson("/api/review/decision", {
@@ -1456,7 +1477,7 @@ const scenarios = [
         candidateId: target.candidate.id,
         action: "accept",
         reviewerName: "Functional reviewer",
-        proposedCanonicalCode: "apob",
+        proposedCanonicalCode: target.proposedCanonicalCode,
       });
 
       const afterReview = await getPatientSnapshot();
@@ -1467,7 +1488,7 @@ const scenarios = [
 
       const afterFirstPromotion = await getPatientSnapshot();
       assert.equal(firstPromotion.alreadyPromoted, false);
-      assert.equal(firstPromotion.measurement.canonicalCode, "apob");
+      assert.equal(firstPromotion.measurement.canonicalCode, target.proposedCanonicalCode);
       assertCountDelta(countSnapshot(afterReview), countSnapshot(afterFirstPromotion), {
         measurements: 1,
         measurementPromotions: 1,
@@ -1492,7 +1513,7 @@ const scenarios = [
     coverageType: "error",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
-      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
+      const target = findPromotableReviewTarget(upload.parseTasks);
       assert.ok(target);
 
       const decision = await postJson("/api/review/decision", {
@@ -1524,7 +1545,7 @@ const scenarios = [
     coverageType: "error",
     async run() {
       const upload = await uploadDocumentFixture(requireDocumentScenario("csv"));
-      const target = findReviewableCandidate(upload.parseTasks, (candidate) => candidate.numericValue !== undefined);
+      const target = findPromotableReviewTarget(upload.parseTasks);
       assert.ok(target);
 
       const decision = await postJson("/api/review/decision", {
