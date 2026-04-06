@@ -1,0 +1,33 @@
+{
+  "name": "longevity-evidence-layer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "bootstrap:postgres": "node ./scripts/bootstrap-postgres.mjs",
+    "verify:meta": "node ./scripts/meta-verify.mjs",
+    "seed:postgres:export": "node ./scripts/export-postgres-seed.mjs",
+    "test:integration": "node ./scripts/integration-smoke.mjs",
+    "test:integration:file": "node ./scripts/integration-smoke.mjs",
+    "test:integration:postgres": "node ./scripts/integration-smoke-postgres.mjs",
+    "typecheck": "tsc --noEmit",
+    "docs:verify": "node ./scripts/docs-verify.mjs",
+    "verify": "npm run docs:verify && npm run typecheck && npm run build && npm run test:integration:file"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "next": "latest",
+    "pg": "^8.20.0",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/pg": "^8.20.0",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest"
+  }
+}

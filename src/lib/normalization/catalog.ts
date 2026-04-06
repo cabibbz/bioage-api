@@ -1,0 +1,54 @@
+import { MeasurementModality } from "@/src/lib/domain/types";
+
+export type CanonicalDefinition = {
+  canonicalCode: string;
+  title: string;
+  modality: MeasurementModality;
+  preferredUnit?: string;
+  aliases: string[];
+};
+
+export const canonicalCatalog: CanonicalDefinition[] = [
+  {
+    canonicalCode: "epigenetic_biological_age",
+    title: "Epigenetic Biological Age",
+    modality: "epigenetic",
+    preferredUnit: "years",
+    aliases: ["omicmage", "biological age", "bio age", "biological_age"],
+  },
+  {
+    canonicalCode: "pace_of_aging",
+    title: "Pace of Aging",
+    modality: "epigenetic",
+    aliases: ["dunedinpace", "pace of aging", "pace_of_aging"],
+  },
+  {
+    canonicalCode: "inflammation_crp",
+    title: "Inflammation Signal",
+    modality: "blood",
+    preferredUnit: "mg/L",
+    aliases: ["crp", "c-reactive protein", "hs-crp", "inflammation score"],
+  },
+  {
+    canonicalCode: "wearable_hrv_sleep_window",
+    title: "Recovery Capacity",
+    modality: "wearable",
+    preferredUnit: "ms",
+    aliases: ["hrv", "average hrv", "nighttime hrv", "rmssd"],
+  },
+  {
+    canonicalCode: "resting_heart_rate",
+    title: "Resting Heart Rate",
+    modality: "wearable",
+    preferredUnit: "bpm",
+    aliases: ["rhr", "resting heart rate"],
+  },
+  {
+    canonicalCode: "apob",
+    title: "ApoB",
+    modality: "blood",
+    preferredUnit: "mg/dL",
+    aliases: ["apob", "apo b", "apolipoprotein b"],
+  },
+];
+

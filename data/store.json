@@ -1,0 +1,103 @@
+{
+  "patients": [
+    {
+      "id": "pt_001",
+      "displayName": "Ari Morgan",
+      "chronologicalAge": 47,
+      "focus": "Longevity follow-up after sleep, resistance training, and omega-3 protocol.",
+      "lastReviewedAt": "2026-04-03T14:15:00.000Z",
+      "measurements": [
+        {
+          "id": "m_epi_1",
+          "title": "Epigenetic Biological Age",
+          "canonicalCode": "epigenetic_biological_age",
+          "modality": "epigenetic",
+          "sourceVendor": "TruDiagnostic",
+          "observedAt": "2026-03-22T10:00:00.000Z",
+          "value": 44.8,
+          "unit": "years",
+          "interpretation": "Younger than chronological age with moderate confidence and a favorable 6-month trend.",
+          "evidenceStatus": "improving",
+          "confidenceLabel": "high",
+          "deltaLabel": "-2.2y vs chronological"
+        },
+        {
+          "id": "m_pace_1",
+          "title": "Pace of Aging",
+          "canonicalCode": "pace_of_aging",
+          "modality": "epigenetic",
+          "sourceVendor": "TruDiagnostic",
+          "observedAt": "2026-03-22T10:00:00.000Z",
+          "value": 0.89,
+          "interpretation": "Below reference pace. Good candidate for intervention-linked tracking.",
+          "evidenceStatus": "improving",
+          "confidenceLabel": "high",
+          "deltaLabel": "11% slower than reference"
+        },
+        {
+          "id": "m_crp_1",
+          "title": "Inflammation Signal",
+          "canonicalCode": "inflammation_crp",
+          "modality": "blood",
+          "sourceVendor": "Quest panel via Terra parser",
+          "observedAt": "2026-03-18T08:30:00.000Z",
+          "value": 1.7,
+          "unit": "mg/L",
+          "interpretation": "Improved from prior draw, but still relevant for long-term intervention review.",
+          "evidenceStatus": "watch",
+          "confidenceLabel": "moderate",
+          "deltaLabel": "-0.9 mg/L in 90 days"
+        },
+        {
+          "id": "m_hrv_1",
+          "title": "Recovery Capacity",
+          "canonicalCode": "wearable_hrv_sleep_window",
+          "modality": "wearable",
+          "sourceVendor": "Oura",
+          "observedAt": "2026-04-02T07:00:00.000Z",
+          "value": 46,
+          "unit": "ms",
+          "interpretation": "Wearable signal is improving, but still trails the favorable epigenetic trend.",
+          "evidenceStatus": "conflicted",
+          "confidenceLabel": "review",
+          "deltaLabel": "+8 ms in 30 days"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "t_001",
+          "type": "assessment",
+          "occurredAt": "2026-03-22T10:00:00.000Z",
+          "title": "TruDiagnostic follow-up uploaded",
+          "detail": "New OMICmAge and DunedinPACE results normalized into the longitudinal record."
+        },
+        {
+          "id": "t_002",
+          "type": "intervention",
+          "occurredAt": "2026-02-11T16:30:00.000Z",
+          "title": "Resistance training block started",
+          "detail": "3x weekly plan, protein target raised, creatine added."
+        },
+        {
+          "id": "t_003",
+          "type": "intervention",
+          "occurredAt": "2026-01-09T09:00:00.000Z",
+          "title": "Sleep compression protocol retired",
+          "detail": "Care plan shifted toward consistent wake time and late caffeine removal after HRV deterioration."
+        },
+        {
+          "id": "t_004",
+          "type": "assessment",
+          "occurredAt": "2025-12-20T08:30:00.000Z",
+          "title": "Quest inflammation panel parsed",
+          "detail": "CRP, fasting insulin, ApoB, and CBC markers entered via document parser for baseline comparison."
+        }
+      ]
+    }
+  ],
+  "reportIngestions": [],
+  "sourceDocuments": [],
+  "parseTasks": [],
+  "reviewDecisions": [],
+  "measurementPromotions": []
+}
