@@ -49,6 +49,7 @@
 - changed the browser suite to discover review and promotion coverage targets from the persisted CSV parse-task snapshot at runtime instead of pinning those flows to hardcoded uploaded filenames and candidate labels
 - expanded invalid-action browser coverage so each workbench now proves its current draft form or selected record survives the error before any refresh occurs
 - expanded browser coverage again so every discovered workbench must also survive a real backend-error path without mutating persisted state or dropping the current draft
+- split promotion browser errors into a true backend-unavailable path plus the separate invalid-request path, so the backend-error coverage claim now reflects a real server failure case there too
 - locked promoted review decisions so later review-save attempts are rejected, added API regression coverage that proves those blocked updates leave persisted state unchanged, and updated the browser suite so promoted candidates disappear from the editable review queue after promotion
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario

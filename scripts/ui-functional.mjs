@@ -1286,15 +1286,50 @@ async function main() {
     log("review", "accepted five parser candidates through the UI and verified recent-decision overflow rendering");
 
     const promotionSelect = promotionSection.locator("select").first();
-    const promotionErrorSnapshot = await loadPersistedSnapshot();
+    const promotionBackendErrorSnapshot = await loadPersistedSnapshot();
     const promotionErrorDecision = resolveReviewDecisionBySelection(
-      promotionErrorSnapshot,
+      promotionBackendErrorSnapshot,
       firstReviewTarget.parseTaskId,
       firstReviewTarget.candidateId,
     );
     await waitForSelectOptionValue(promotionSelect, promotionErrorDecision.id);
     await promotionSelect.selectOption({ value: promotionErrorDecision.id });
     await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
+    await page.route(
+      "**/api/review/promote",
+      async (route) => {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: "Promotion backend unavailable.",
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
+    await promotionSection.locator("pre").filter({ hasText: '"error": "Promotion backend unavailable."' }).waitFor();
+    await assertPromotionSelectionState(promotionSection, promotionErrorDecision.id);
+    await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
+    backendErrorWorkbenchHeadings.add("Promote accepted decisions");
+    await assertUiStateUnchangedAfterError(
+      page,
+      sections,
+      promotionBackendErrorSnapshot,
+      discoveredWorkbenchHeadings,
+    );
+    log("promotion", "surfaced a backend promotion error without mutating persisted state or dropping the current selection");
+
+    const promotionErrorSnapshot = await loadPersistedSnapshot();
+    const promotionValidationErrorDecision = resolveReviewDecisionBySelection(
+      promotionErrorSnapshot,
+      firstReviewTarget.parseTaskId,
+      firstReviewTarget.candidateId,
+    );
+    await waitForSelectOptionValue(promotionSelect, promotionValidationErrorDecision.id);
+    await promotionSelect.selectOption({ value: promotionValidationErrorDecision.id });
+    await waitForPromotionSnapshot(promotionSection, promotionValidationErrorDecision);
     await page.route(
       "**/api/review/promote",
       async (route) => {
@@ -1312,10 +1347,9 @@ async function main() {
       .locator("pre")
       .filter({ hasText: '"error": "Review decision missing-review-decision was not found."' })
       .waitFor();
-    await assertPromotionSelectionState(promotionSection, promotionErrorDecision.id);
-    await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
+    await assertPromotionSelectionState(promotionSection, promotionValidationErrorDecision.id);
+    await waitForPromotionSnapshot(promotionSection, promotionValidationErrorDecision);
     errorWorkbenchHeadings.add("Promote accepted decisions");
-    backendErrorWorkbenchHeadings.add("Promote accepted decisions");
     await assertUiStateUnchangedAfterError(page, sections, promotionErrorSnapshot, discoveredWorkbenchHeadings);
     log("promotion", "rejected an invalid promotion request without mutating persisted state");
 
@@ -1332,7 +1366,7 @@ async function main() {
     log("promotion", "cleared stale result output when switching to a different pending decision");
     await promotionSection.getByRole("button", { name: "Reset demo", exact: true }).click();
     assert.equal(await promotionSelect.inputValue(), promotionOptionValues[0]);
-    await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
+    await waitForPromotionSnapshot(promotionSection, promotionValidationErrorDecision);
     await promotionSection.locator("pre").filter({ hasText: "Promotion output will appear here." }).waitFor();
     await assertDashboardMatchesSnapshot(sections, promotionErrorSnapshot);
     log("promotion", "reset the promotion workbench back to the first pending decision and cleared local result state");
