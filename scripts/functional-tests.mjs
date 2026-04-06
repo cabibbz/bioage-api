@@ -701,6 +701,20 @@ function createTextFhirResource() {
   );
 }
 
+function createBoundedTextFhirResource() {
+  return Buffer.from(
+    JSON.stringify({
+      resourceType: "Observation",
+      status: "final",
+      code: {
+        text: "CRP",
+      },
+      valueString: "LESS THAN OR EQUAL TO 0.3",
+      effectiveDateTime: "2026-04-03T10:00:00.000Z",
+    }),
+  );
+}
+
 function createPromotionNormalizationFhirBundle() {
   return Buffer.from(
     JSON.stringify({
@@ -1119,7 +1133,7 @@ const scenarios = [
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
-          { name: "CRP", textValue: "<0.3", unit: "mg/L" },
+          { name: "CRP", textValue: "LESS THAN   0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
           { name: "Vitamin D, 25-Hydroxy", value: 135, unit: "nmol/L" },
           { name: "Mystery Marker", value: 12.3, unit: "arb" },
@@ -1171,7 +1185,7 @@ const scenarios = [
       assert.equal(crpMeasurement.textValue, "<0.3");
       assert.equal(crpMeasurement.value, undefined);
       assert.equal(crpMeasurement.unit, "mg/L");
-      assert.ok(crpMeasurement.note.includes("Preserved reported text/bounded result"));
+      assert.ok(crpMeasurement.note.includes('from "LESS THAN 0.3" to "<0.3"'));
       const glucoseMeasurement = report.measurements.find(
         (measurement) => measurement.canonicalCode === "fasting_glucose",
       );
@@ -1276,6 +1290,68 @@ const scenarios = [
       assert.ok(persistedMeasurement);
       assert.equal(persistedMeasurement.textValue, "no common variant detected");
       assert.ok(persistedMeasurement.interpretation.includes("categorical result no common variant detected"));
+    },
+  },
+  {
+    name: "report-intake-normalizes-bounded-lab-wording",
+    covers: ["POST /api/intake/report"],
+    coverageType: "success",
+    async run() {
+      const before = await getPatientSnapshot();
+      const report = await postJson("/api/intake/report", {
+        patientId,
+        vendor: "Functional bounded panel",
+        observedAt: "2026-04-04T10:30:00.000Z",
+        entries: [
+          { name: "CRP", textValue: "LESS THAN OR EQUAL TO 0.3", unit: "mg/L" },
+          { name: "Apolipoprotein B", textValue: "GREATER THAN OR EQUAL TO 90", unit: "mg/dL" },
+          { name: "Glucose", textValue: "\u2264 85", unit: "mg/dL" },
+        ],
+      });
+
+      assert.equal(report.normalizationSummary.totalEntries, 3);
+      assert.equal(report.normalizationSummary.mappedEntries, 3);
+      assert.equal(report.normalizationSummary.unmappedEntries, 0);
+
+      const crpMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "inflammation_crp");
+      assert.ok(crpMeasurement);
+      assert.equal(crpMeasurement.textValue, "<=0.3");
+      assert.ok(crpMeasurement.note.includes('from "LESS THAN OR EQUAL TO 0.3" to "<=0.3"'));
+
+      const apobMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "apob");
+      assert.ok(apobMeasurement);
+      assert.equal(apobMeasurement.textValue, ">=90");
+      assert.ok(apobMeasurement.note.includes('from "GREATER THAN OR EQUAL TO 90" to ">=90"'));
+
+      const glucoseMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "fasting_glucose");
+      assert.ok(glucoseMeasurement);
+      assert.equal(glucoseMeasurement.textValue, "<=85");
+      assert.ok(glucoseMeasurement.note.includes('from "\u2264 85" to "<=85"'));
+
+      const after = await getPatientSnapshot();
+      assertCountDelta(countSnapshot(before), countSnapshot(after), {
+        measurements: 3,
+        reportIngestions: 1,
+        timeline: 1,
+      });
+
+      const persistedCrpMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "inflammation_crp" && measurement.observedAt === "2026-04-04T10:30:00.000Z",
+      );
+      assert.ok(persistedCrpMeasurement);
+      assert.ok(persistedCrpMeasurement.interpretation.includes("bounded result <=0.3 mg/L"));
+
+      const persistedApobMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "apob" && measurement.observedAt === "2026-04-04T10:30:00.000Z",
+      );
+      assert.ok(persistedApobMeasurement);
+      assert.ok(persistedApobMeasurement.interpretation.includes("bounded result >=90 mg/dL"));
+
+      const persistedGlucoseMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "fasting_glucose" && measurement.observedAt === "2026-04-04T10:30:00.000Z",
+      );
+      assert.ok(persistedGlucoseMeasurement);
+      assert.ok(persistedGlucoseMeasurement.interpretation.includes("bounded result <=85 mg/dL"));
     },
   },
   {
@@ -1952,6 +2028,55 @@ const scenarios = [
       assert.equal(promoted.measurement.value, undefined);
       assert.equal(promoted.measurement.unit, undefined);
       assert.ok(promoted.measurement.interpretation.includes("text or categorical result borderline high"));
+      assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
+        measurements: 1,
+        measurementPromotions: 1,
+        timeline: 1,
+      });
+    },
+  },
+  {
+    name: "promotion-normalizes-reviewed-bounded-candidate-values",
+    covers: ["POST /api/review/promote"],
+    coverageType: "success",
+    async run() {
+      const upload = await postMultipart("/api/intake/document", {
+        patientId,
+        sourceSystem: "Functional bounded observation",
+        observedAt: "2026-04-05T11:00:00.000Z",
+        file: new File([createBoundedTextFhirResource()], "functional-bounded-text-observation.json", {
+          type: "application/json",
+        }),
+      });
+
+      const target = findReviewableCandidate(
+        upload.parseTasks,
+        (candidate) => candidate.numericValue === undefined && candidateHasPromotableValue(candidate),
+      );
+      assert.ok(target);
+
+      const decision = await postJson("/api/review/decision", {
+        patientId,
+        parseTaskId: target.task.id,
+        candidateId: target.candidate.id,
+        action: "accept",
+        reviewerName: "Functional reviewer",
+        proposedCanonicalCode: "inflammation_crp",
+      });
+
+      const beforePromotion = await getPatientSnapshot();
+      const promoted = await postJson("/api/review/promote", {
+        patientId,
+        reviewDecisionId: decision.decision.id,
+      });
+
+      const afterPromotion = await getPatientSnapshot();
+      assert.equal(promoted.alreadyPromoted, false);
+      assert.equal(promoted.measurement.canonicalCode, "inflammation_crp");
+      assert.equal(promoted.measurement.textValue, "<=0.3");
+      assert.equal(promoted.measurement.value, undefined);
+      assert.equal(promoted.measurement.unit, undefined);
+      assert.ok(promoted.measurement.interpretation.includes("bounded result <=0.3"));
       assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
         measurements: 1,
         measurementPromotions: 1,

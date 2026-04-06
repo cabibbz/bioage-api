@@ -33,6 +33,69 @@ function normalizeQualitativeKey(value: string) {
     .replace(/\s*-\s*/g, "-");
 }
 
+function normalizeBoundedNumericToken(value: string) {
+  return value.replace(/,/g, "").replace(/^\+/, "");
+}
+
+function normalizeGenericBoundedText(title: string, sourceValue: string): TextNormalizationResult | undefined {
+  const normalizedSource = normalizeWhitespace(sourceValue).replace(/\u2264/g, "<=").replace(/\u2265/g, ">=");
+  const directOperatorMatch = normalizedSource.match(
+    /^(<=|>=|<|>)\s*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))$/,
+  );
+
+  if (directOperatorMatch) {
+    const normalizedValue = `${directOperatorMatch[1]}${normalizeBoundedNumericToken(directOperatorMatch[2])}`;
+    return {
+      textValue: normalizedValue,
+      note: buildCanonicalizationNote(title, sourceValue, normalizedValue),
+    };
+  }
+
+  const boundedKey = normalizeWhitespace(sourceValue).toLowerCase();
+  const boundedPatterns = [
+    {
+      pattern: /^(?:less than or equal to|at most|no more than)\s+([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))$/,
+      operator: "<=",
+    },
+    {
+      pattern: /^(?:greater than or equal to|at least|no less than)\s+([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))$/,
+      operator: ">=",
+    },
+    {
+      pattern: /^(?:less than|below|under)\s+([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))$/,
+      operator: "<",
+    },
+    {
+      pattern: /^(?:greater than|above|over)\s+([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))$/,
+      operator: ">",
+    },
+  ];
+
+  for (const { pattern, operator } of boundedPatterns) {
+    const match = boundedKey.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    const normalizedValue = `${operator}${normalizeBoundedNumericToken(match[1])}`;
+    return {
+      textValue: normalizedValue,
+      note: buildCanonicalizationNote(title, sourceValue, normalizedValue),
+    };
+  }
+
+  return undefined;
+}
+
+function normalizeGenericTextValue(title: string, sourceValue: string): TextNormalizationResult {
+  const boundedResult = normalizeGenericBoundedText(title, sourceValue);
+  if (boundedResult) {
+    return boundedResult;
+  }
+
+  return normalizeGenericQualitativeText(title, sourceValue);
+}
+
 function normalizeGenericQualitativeText(title: string, sourceValue: string): TextNormalizationResult {
   const normalizedSource = normalizeWhitespace(sourceValue);
   const qualitativeKey = normalizeQualitativeKey(sourceValue);
@@ -88,7 +151,7 @@ function finalizeTextNormalization(
     return result;
   }
 
-  return normalizeGenericQualitativeText(title, sourceValue);
+  return normalizeGenericTextValue(title, sourceValue);
 }
 
 function normalizeApoeAllelePair(input: string) {
@@ -222,5 +285,5 @@ export function normalizeTextMeasurementValue(
     return normalizeMthfrStatus(sourceValue);
   }
 
-  return normalizeGenericQualitativeText(definition.title, sourceValue);
+  return normalizeGenericTextValue(definition.title, sourceValue);
 }

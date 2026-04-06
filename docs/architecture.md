@@ -49,6 +49,6 @@ Current non-goals:
 - move source report binaries into object storage with checksums
 - add field-level review queues for unmapped metrics
 - separate source ingestion from clinician-facing projections
-- expand vendor-specific categorical value normalization beyond the current ApoE SNP, MTHFR, and first qualitative lab wording rules
+- expand vendor-specific categorical value normalization beyond the current ApoE SNP, MTHFR, and first qualitative plus bounded lab wording rules
 - broaden unit-aware normalization beyond the current small safe alternate-unit set
 - support vendor-specific and multimodal PDF parsing only after review semantics exist
