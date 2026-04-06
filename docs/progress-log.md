@@ -30,6 +30,7 @@
 - expanded the browser suite again so the capped recent-decisions and recent-promotions panels are exercised under real overflow, not single-item happy paths
 - expanded the browser suite again so non-accept review actions (`reject` and `follow_up`) are exercised through the UI and the promotion workbench is verified empty after every promotable decision is consumed
 - tightened that browser path so the non-accept actions are exercised after the accepted-review promotion queue has already been drained, proving the empty-state recovery is stable
+- expanded the browser suite again so an existing rejected decision is updated back to accepted through the UI, the pending promotion queue recovers, and the reopened decision can be promoted without duplicating review records
 - upgraded the API suite so every successful mutation response with `patientSnapshot` is checked against the persisted patient state automatically
 - strengthened the API inventory guard so every discovered route method now needs both success and error coverage, not just one claiming scenario
 - fixed route validation so required string fields reject blank or whitespace-only values, and added functional coverage for that contract across the mutation routes

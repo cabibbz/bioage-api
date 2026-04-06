@@ -231,6 +231,13 @@ function reviewCountsByTask(snapshot) {
   }, {});
 }
 
+function pendingPromotionDecisions(snapshot) {
+  const promotedDecisionIds = new Set(snapshot.measurementPromotions.map((promotion) => promotion.reviewDecisionId));
+  return snapshot.reviewDecisions.filter(
+    (decision) => decision.action === "accept" && decision.proposedCanonicalCode && !promotedDecisionIds.has(decision.id),
+  );
+}
+
 async function assertSignalCardsMatchSnapshot(section, snapshot) {
   const expectedSignals = snapshot.patient.measurements.slice(0, 3);
   const cards = section.locator(".signal-card");
@@ -891,8 +898,81 @@ async function main() {
     const afterNonAcceptReviews = await loadPersistedSnapshot();
     assert.ok(afterNonAcceptReviews.reviewDecisions.some((decision) => decision.action === "reject"));
     assert.ok(afterNonAcceptReviews.reviewDecisions.some((decision) => decision.action === "follow_up"));
+    assert.equal(pendingPromotionDecisions(afterNonAcceptReviews).length, 0);
     await assertDashboardMatchesSnapshot(sections, afterNonAcceptReviews);
     log("review", "saved reject and follow-up decisions through the UI and verified the promotion queue emptied");
+
+    const reviewUpdateTarget = nonAcceptReviewTargets[0];
+    const beforeReviewUpdate = await loadPersistedSnapshot();
+    const existingReviewDecision = resolveReviewDecision(
+      beforeReviewUpdate,
+      reviewUpdateTarget.sourceFilename,
+      reviewUpdateTarget.candidateDisplayName,
+    );
+    const reviewDecisionCountBeforeUpdate = beforeReviewUpdate.reviewDecisions.length;
+    const resolvedUpdateTarget = resolveCsvReviewTarget(
+      beforeReviewUpdate,
+      reviewUpdateTarget.sourceFilename,
+      reviewUpdateTarget.candidateDisplayName,
+    );
+    await waitForSelectOptionValue(parseTaskSelect, resolvedUpdateTarget.task.id);
+    await parseTaskSelect.selectOption({ value: resolvedUpdateTarget.task.id });
+    await waitForSelectOptionValue(candidateSelect, resolvedUpdateTarget.candidate.id);
+    await candidateSelect.selectOption({ value: resolvedUpdateTarget.candidate.id });
+    await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("accept");
+    await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("UI clinician reopened");
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Proposed canonical mapping" })
+      .locator("select")
+      .selectOption("apob");
+    await reviewSection
+      .locator("label")
+      .filter({ hasText: "Note" })
+      .locator("textarea")
+      .fill("Reopened the prior reject decision to verify UI update semantics and queue recovery.");
+    await reviewSection.getByRole("button", { name: "Save review decision", exact: true }).click();
+    await reviewSection
+      .locator("pre")
+      .filter({ hasText: `"candidateId": "${resolvedUpdateTarget.candidate.id}"` })
+      .waitFor();
+    await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+
+    const afterReviewUpdate = await loadPersistedSnapshot();
+    const updatedReviewDecision = resolveReviewDecision(
+      afterReviewUpdate,
+      reviewUpdateTarget.sourceFilename,
+      reviewUpdateTarget.candidateDisplayName,
+    );
+    assert.equal(afterReviewUpdate.reviewDecisions.length, reviewDecisionCountBeforeUpdate);
+    assert.equal(updatedReviewDecision.id, existingReviewDecision.id);
+    assert.equal(updatedReviewDecision.action, "accept");
+    assert.equal(updatedReviewDecision.proposedCanonicalCode, "apob");
+    assert.equal(updatedReviewDecision.reviewerName, "UI clinician reopened");
+    const reopenedPendingPromotions = pendingPromotionDecisions(afterReviewUpdate);
+    assert.equal(reopenedPendingPromotions.length, 1);
+    assert.equal(reopenedPendingPromotions[0].id, updatedReviewDecision.id);
+    await waitForSelectOptionValue(promotionSelect, updatedReviewDecision.id);
+    await assertDashboardMatchesSnapshot(sections, afterReviewUpdate);
+    log("review", "updated an existing rejected decision into an accepted one and verified the pending promotion queue recovered");
+
+    const promotionCountBeforeReopenedPromotion = afterReviewUpdate.measurementPromotions.length;
+    await promotionSelect.selectOption({ value: updatedReviewDecision.id });
+    await promotionSection.getByRole("button", { name: "Promote measurement", exact: true }).click();
+    await promotionSection
+      .locator("pre")
+      .filter({ hasText: `"reviewDecisionId": "${updatedReviewDecision.id}"` })
+      .waitFor();
+    await refreshDashboard(page);
+    await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
+    await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
+    const afterReviewUpdatePromotion = await loadPersistedSnapshot();
+    assert.equal(afterReviewUpdatePromotion.reviewDecisions.length, reviewDecisionCountBeforeUpdate);
+    assert.equal(afterReviewUpdatePromotion.measurementPromotions.length, promotionCountBeforeReopenedPromotion + 1);
+    assert.equal(pendingPromotionDecisions(afterReviewUpdatePromotion).length, 0);
+    await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
+    log("promotion", "promoted the reopened decision and verified the queue emptied again without duplicating review records");
 
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
