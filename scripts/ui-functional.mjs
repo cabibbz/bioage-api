@@ -330,16 +330,15 @@ const canonicalCodeByCandidateDisplayName = new Map([
   ["C-Reactive Protein", "inflammation_crp"],
 ]);
 
-function resolveReviewTarget(snapshot, sourceDocumentFilename, parser, candidateDisplayName) {
-  const task = snapshot.parseTasks.find(
-    (entry) => entry.sourceDocumentFilename === sourceDocumentFilename && entry.parser === parser,
-  );
-  assert.ok(task, `${parser} parse task for ${sourceDocumentFilename} should exist.`);
+function findReviewTarget(snapshot, predicate) {
+  for (const task of snapshot.parseTasks) {
+    const candidate = task.candidates.find((entry) => predicate(task, entry));
+    if (candidate) {
+      return { task, candidate };
+    }
+  }
 
-  const candidate = task.candidates.find((entry) => entry.displayName === candidateDisplayName);
-  assert.ok(candidate, `Candidate ${candidateDisplayName} should exist on ${sourceDocumentFilename}.`);
-
-  return { task, candidate };
+  throw new Error("Expected review target was not found in the persisted parse-task snapshot.");
 }
 
 function resolveReviewSelection(snapshot, parseTaskId, candidateId) {
@@ -1076,7 +1075,6 @@ async function main() {
     const nonNumericObservation = {
       filename: "ui-functional-text-observation.json",
       sourceSystem: "UI functional text observation",
-      candidateDisplayName: "ApoB interpretation",
       reviewerName: "UI clinician text accept",
       proposedCanonicalCode: "apob",
       note: "Accepted text-valued observation to prove it stays out of the promotion queue.",
@@ -1185,11 +1183,12 @@ async function main() {
 
     successfulWorkbenchHeadings.add("Adjudicate parser candidates");
     const snapshotBeforeTextReview = await loadPersistedSnapshot();
-    const nonNumericReviewTarget = resolveReviewTarget(
+    const nonNumericReviewTarget = findReviewTarget(
       snapshotBeforeTextReview,
-      nonNumericObservation.filename,
-      "fhir_resource",
-      nonNumericObservation.candidateDisplayName,
+      (task, candidate) =>
+        task.sourceDocumentFilename === nonNumericObservation.filename &&
+        task.parser === "fhir_resource" &&
+        candidate.numericValue === undefined,
     );
     await waitForSelectOptionValue(parseTaskSelect, nonNumericReviewTarget.task.id);
     await parseTaskSelect.selectOption({ value: nonNumericReviewTarget.task.id });

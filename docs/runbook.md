@@ -84,7 +84,7 @@ This runs:
 - review now also clears stale result payloads when its form fields change in place, and the browser suite verifies that placeholder reset before the next save/reset path continues
 - the browser document path now uploads multiple ZIP archives and verifies extracted-child rendering plus parser-list overflow behavior on `/`
 - the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
-- the browser suite now discovers its CSV review and promotion targets from the live persisted parse-task snapshot after archive upload instead of pinning the workflow to hardcoded candidate filenames
+- the browser suite now discovers its review and promotion targets from the live persisted parse-task snapshot instead of pinning those paths to hardcoded candidate filenames or labels
 - the browser suite now creates enough accepted reviews and promotions to verify overflow behavior for the capped recent-decisions and recent-promotions feeds
 - the browser suite now also saves `reject` and `follow_up` review decisions through the UI and verifies the promotion workbench returns to the empty pending state once all accepted decisions are consumed
 - the browser suite now also revisits the review workbench after promotion overflow so non-accept actions are exercised after the accepted queue has been drained
