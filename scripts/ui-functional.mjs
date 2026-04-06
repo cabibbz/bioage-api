@@ -1064,6 +1064,10 @@ async function main() {
       await waitForSelectOptionValue(candidateSelect, resolvedTarget.candidate.id);
       await candidateSelect.selectOption({ value: resolvedTarget.candidate.id });
       await waitForReviewCandidateSnapshot(reviewSection, resolvedTarget.candidate);
+      if (target === acceptedReviewTargets[0]) {
+        await reviewSection.locator("pre").filter({ hasText: "Review-decision output will appear here." }).waitFor();
+        log("review", "cleared stale result output when switching to a different review target");
+      }
       await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill(target.reviewerName);
       await reviewSection
         .locator("label")
@@ -1129,6 +1133,8 @@ async function main() {
     assert.ok(nonDefaultPromotionDecision, "Expected reset coverage decision to resolve from persisted state.");
     await promotionSelect.selectOption({ value: nonDefaultPromotionDecisionId });
     await waitForPromotionSnapshot(promotionSection, nonDefaultPromotionDecision);
+    await promotionSection.locator("pre").filter({ hasText: "Promotion output will appear here." }).waitFor();
+    log("promotion", "cleared stale result output when switching to a different pending decision");
     await promotionSection.getByRole("button", { name: "Reset demo", exact: true }).click();
     assert.equal(await promotionSelect.inputValue(), promotionOptionValues[0]);
     await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);

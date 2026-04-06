@@ -63,6 +63,10 @@ export function PromotionWorkbench({ tasks, decisions, promotions }: PromotionWo
     pendingAcceptedDecisions[0] ??
     null;
 
+  useEffect(() => {
+    setResult("");
+  }, [selectedDecision?.id]);
+
   async function handleSubmit() {
     if (!selectedDecision) {
       setResult(JSON.stringify({ error: "Choose an accepted review decision first." }, null, 2));

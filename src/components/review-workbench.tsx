@@ -111,6 +111,10 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
     }
   }, [action, proposedCanonicalCode]);
 
+  useEffect(() => {
+    setResult("");
+  }, [selectedCandidate?.id, selectedTask?.id]);
+
   async function handleSubmit() {
     if (!selectedTask || !selectedCandidate) {
       setResult(JSON.stringify({ error: "Choose a parse task with a candidate value first." }, null, 2));
