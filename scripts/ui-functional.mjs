@@ -2068,7 +2068,7 @@ async function main() {
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
-          { name: "CRP", textValue: "LESS THAN 0.3", unit: "mg/L" },
+          { name: "CRP", textValue: "Below detection limit: 0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
           { name: "Vitamin D, 25-Hydroxy", value: 135, unit: "nmol/L" },
           { name: "Unknown vendor score", value: 72 },

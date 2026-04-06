@@ -709,7 +709,7 @@ function createBoundedTextFhirResource() {
       code: {
         text: "CRP",
       },
-      valueString: "LESS THAN OR EQUAL TO 0.3",
+      valueString: "Below detection limit: 0.3",
       effectiveDateTime: "2026-04-03T10:00:00.000Z",
     }),
   );
@@ -1133,7 +1133,7 @@ const scenarios = [
           { name: "LDL-C", value: 2.1, unit: "mmol/L" },
           { name: "Glucose", value: 5.4, unit: "mmol/L" },
           { name: "HbA1c", value: 34, unit: "mmol/mol" },
-          { name: "CRP", textValue: "LESS THAN   0.3", unit: "mg/L" },
+          { name: "CRP", textValue: "Below detection limit: 0.3", unit: "mg/L" },
           { name: "Lp(a)", value: 28, unit: "mg/dL" },
           { name: "Vitamin D, 25-Hydroxy", value: 135, unit: "nmol/L" },
           { name: "Mystery Marker", value: 12.3, unit: "arb" },
@@ -1185,7 +1185,7 @@ const scenarios = [
       assert.equal(crpMeasurement.textValue, "<0.3");
       assert.equal(crpMeasurement.value, undefined);
       assert.equal(crpMeasurement.unit, "mg/L");
-      assert.ok(crpMeasurement.note.includes('from "LESS THAN 0.3" to "<0.3"'));
+      assert.ok(crpMeasurement.note.includes('from "Below detection limit: 0.3" to "<0.3"'));
       const glucoseMeasurement = report.measurements.find(
         (measurement) => measurement.canonicalCode === "fasting_glucose",
       );
@@ -1352,6 +1352,56 @@ const scenarios = [
       );
       assert.ok(persistedGlucoseMeasurement);
       assert.ok(persistedGlucoseMeasurement.interpretation.includes("bounded result <=85 mg/dL"));
+    },
+  },
+  {
+    name: "report-intake-normalizes-detection-limit-lab-wording",
+    covers: ["POST /api/intake/report"],
+    coverageType: "success",
+    async run() {
+      const before = await getPatientSnapshot();
+      const report = await postJson("/api/intake/report", {
+        patientId,
+        vendor: "Functional detection-limit panel",
+        observedAt: "2026-04-04T10:45:00.000Z",
+        entries: [
+          { name: "CRP", textValue: "Below detection limit: 0.3", unit: "mg/L" },
+          { name: "Apolipoprotein B", textValue: "Above reportable limit: 90", unit: "mg/dL" },
+        ],
+      });
+
+      assert.equal(report.normalizationSummary.totalEntries, 2);
+      assert.equal(report.normalizationSummary.mappedEntries, 2);
+      assert.equal(report.normalizationSummary.unmappedEntries, 0);
+
+      const crpMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "inflammation_crp");
+      assert.ok(crpMeasurement);
+      assert.equal(crpMeasurement.textValue, "<0.3");
+      assert.ok(crpMeasurement.note.includes('from "Below detection limit: 0.3" to "<0.3"'));
+
+      const apobMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "apob");
+      assert.ok(apobMeasurement);
+      assert.equal(apobMeasurement.textValue, ">90");
+      assert.ok(apobMeasurement.note.includes('from "Above reportable limit: 90" to ">90"'));
+
+      const after = await getPatientSnapshot();
+      assertCountDelta(countSnapshot(before), countSnapshot(after), {
+        measurements: 2,
+        reportIngestions: 1,
+        timeline: 1,
+      });
+
+      const persistedCrpMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "inflammation_crp" && measurement.observedAt === "2026-04-04T10:45:00.000Z",
+      );
+      assert.ok(persistedCrpMeasurement);
+      assert.ok(persistedCrpMeasurement.interpretation.includes("bounded result <0.3 mg/L"));
+
+      const persistedApobMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "apob" && measurement.observedAt === "2026-04-04T10:45:00.000Z",
+      );
+      assert.ok(persistedApobMeasurement);
+      assert.ok(persistedApobMeasurement.interpretation.includes("bounded result >90 mg/dL"));
     },
   },
   {
@@ -2073,10 +2123,10 @@ const scenarios = [
       const afterPromotion = await getPatientSnapshot();
       assert.equal(promoted.alreadyPromoted, false);
       assert.equal(promoted.measurement.canonicalCode, "inflammation_crp");
-      assert.equal(promoted.measurement.textValue, "<=0.3");
+      assert.equal(promoted.measurement.textValue, "<0.3");
       assert.equal(promoted.measurement.value, undefined);
       assert.equal(promoted.measurement.unit, undefined);
-      assert.ok(promoted.measurement.interpretation.includes("bounded result <=0.3"));
+      assert.ok(promoted.measurement.interpretation.includes("bounded result <0.3"));
       assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
         measurements: 1,
         measurementPromotions: 1,

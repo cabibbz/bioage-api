@@ -52,6 +52,32 @@ function normalizeGenericBoundedText(title: string, sourceValue: string): TextNo
   }
 
   const boundedKey = normalizeWhitespace(sourceValue).toLowerCase();
+  const detectionLimitPatterns = [
+    {
+      pattern:
+        /^(?:below|under)(?:\s+the)?\s+(?:detection|assay|reportable|reporting|quantitation|quantification)\s+limit(?:\s+of(?:\s+(?:detection|quantitation|quantification|reporting))?)?\s*[:(]?\s*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))\)?$/,
+      operator: "<",
+    },
+    {
+      pattern:
+        /^(?:above|over)(?:\s+the)?\s+(?:detection|assay|reportable|reporting|quantitation|quantification)\s+limit(?:\s+of(?:\s+(?:detection|quantitation|quantification|reporting))?)?\s*[:(]?\s*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))\)?$/,
+      operator: ">",
+    },
+  ];
+
+  for (const { pattern, operator } of detectionLimitPatterns) {
+    const match = boundedKey.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    const normalizedValue = `${operator}${normalizeBoundedNumericToken(match[1])}`;
+    return {
+      textValue: normalizedValue,
+      note: buildCanonicalizationNote(title, sourceValue, normalizedValue),
+    };
+  }
+
   const boundedPatterns = [
     {
       pattern: /^(?:less than or equal to|at most|no more than)\s+([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+))$/,

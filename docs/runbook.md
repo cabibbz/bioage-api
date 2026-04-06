@@ -182,7 +182,7 @@ npm run test:functional:postgres
 - no auth or HIPAA controls yet
 - no migration framework yet
 - intervention events are not yet connected to outcome windows
-- direct report intake now accepts numeric, bounded/text, and first genetic categorical entries, with current ApoE SNP, MTHFR, and first qualitative plus bounded lab-wording normalization, but broader vendor-specific categorical semantics still need hardening
+- direct report intake now accepts numeric, bounded/text, and first genetic categorical entries, with current ApoE SNP, MTHFR, and first qualitative, bounded, plus detection-limit lab-wording normalization, but broader vendor-specific categorical semantics still need hardening
 - object storage is still a stub behind the storage adapter
 - full session verification only exercises Postgres when `DATABASE_URL` is configured
 - the bootstrap script is additive only and does not reset a database
