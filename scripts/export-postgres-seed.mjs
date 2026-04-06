@@ -35,9 +35,11 @@ function insertStatement(table, columns, rows) {
   return `insert into ${table} (${columns.join(", ")}) values\n${values}\non conflict do nothing;`;
 }
 
-async function main() {
-  const store = JSON.parse(await readFile(storePath, "utf8"));
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
+function buildStatements(store) {
   const patientRows = (store.patients ?? []).map((patient) => [
     sqlText(patient.id),
     sqlText(patient.displayName),
@@ -161,7 +163,7 @@ async function main() {
     sqlText(promotion.promotedAt),
   ]);
 
-  const statements = [
+  return [
     "-- Generated from data/store.json",
     "-- Safe for local bootstrap against db/postgres-schema.sql",
     "",
@@ -295,21 +297,33 @@ async function main() {
     ),
     "",
   ].join("\n");
+}
+
+async function main() {
+  const normalizeLineEndings = (value) => value.replaceAll("\r\n", "\n");
 
   if (checkMode) {
-    const current = await readFile(outputPath, "utf8");
-    const normalizeLineEndings = (value) => value.replaceAll("\r\n", "\n");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const [store, current] = await Promise.all([
+        readFile(storePath, "utf8").then((value) => JSON.parse(value)),
+        readFile(outputPath, "utf8"),
+      ]);
 
-    if (normalizeLineEndings(current) !== normalizeLineEndings(statements)) {
-      throw new Error(
-        `${path.relative(repoRoot, outputPath)} is out of date with data/store.json. Run npm run seed:postgres:export.`,
-      );
+      if (normalizeLineEndings(current) === normalizeLineEndings(buildStatements(store))) {
+        console.log(`export-postgres-seed: verified ${path.relative(repoRoot, outputPath)}`);
+        return;
+      }
+
+      await sleep(250);
     }
 
-    console.log(`export-postgres-seed: verified ${path.relative(repoRoot, outputPath)}`);
-    return;
+    throw new Error(
+      `${path.relative(repoRoot, outputPath)} is out of date with data/store.json. Run npm run seed:postgres:export.`,
+    );
   }
 
+  const store = JSON.parse(await readFile(storePath, "utf8"));
+  const statements = buildStatements(store);
   await writeFile(outputPath, statements);
   console.log(`export-postgres-seed: wrote ${path.relative(repoRoot, outputPath)}`);
 }

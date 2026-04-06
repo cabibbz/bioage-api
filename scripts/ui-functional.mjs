@@ -36,25 +36,33 @@ async function stopServer(server) {
 
   await new Promise((resolve) => {
     let settled = false;
+    let killRequested = false;
     const finish = () => {
       if (settled) {
         return;
       }
       settled = true;
+      clearTimeout(forceKillTimeout);
+      clearTimeout(giveUpTimeout);
       resolve(undefined);
     };
 
-    const timeout = setTimeout(() => {
+    const forceKillTimeout = setTimeout(() => {
+      killRequested = true;
       server.kill("SIGKILL");
-      finish();
     }, 5000);
 
+    const giveUpTimeout = setTimeout(() => {
+      finish();
+    }, 10000);
+
     server.once("exit", () => {
-      clearTimeout(timeout);
       finish();
     });
 
-    server.kill("SIGTERM");
+    if (!killRequested) {
+      server.kill("SIGTERM");
+    }
   });
 }
 
@@ -604,6 +612,15 @@ function normalizeSnapshotForParity(snapshot) {
       })),
     ),
   };
+}
+
+async function recordParityCheckpoint(checkpoints, label) {
+  const snapshot = await loadPersistedSnapshot();
+  checkpoints.push({
+    label,
+    state: normalizeSnapshotForParity(snapshot),
+  });
+  return snapshot;
 }
 
 async function loadPersistedSnapshot() {
@@ -1158,6 +1175,7 @@ async function main() {
       "Signals needing clinician review",
       "Clinician prep",
     ]);
+    const parityCheckpoints = [];
     log("page", "workbenches rendered");
 
     const sourceDocumentsSection = sectionByHeading(page, "Stored source documents");
@@ -1190,6 +1208,7 @@ async function main() {
     coveredDashboardHeadings.add("Modality-aware evidence cards");
     coveredDashboardHeadings.add("Clinician prep");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
+    await recordParityCheckpoint(parityCheckpoints, "initial_dashboard");
 
     const documentArchives = await loadUiArchiveFixtures({
       archiveDir: process.env.UI_FUNCTIONAL_ARCHIVE_DIR,
@@ -1355,6 +1374,10 @@ async function main() {
       new Set(documentArchives.map((archive) => archive.childCsvFilename)),
     );
     await assertDashboardMatchesSnapshot(sections, uploadedArchivesSnapshot);
+    parityCheckpoints.push({
+      label: "archive_overflow_loaded",
+      state: normalizeSnapshotForParity(uploadedArchivesSnapshot),
+    });
     log("document", "uploaded multiple ZIP archives through the UI and verified extracted-child plus parser-list overflow rendering");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
@@ -1516,6 +1539,10 @@ async function main() {
     assert.equal(pendingPromotionDecisions(afterTextReview).length, 0);
     await promotionSection.getByText("No pending promotions", { exact: true }).waitFor();
     await assertDashboardMatchesSnapshot(sections, afterTextReview);
+    parityCheckpoints.push({
+      label: "text_review_saved",
+      state: normalizeSnapshotForParity(afterTextReview),
+    });
     log("review", "accepted a text-valued observation and verified it stayed out of the promotion queue");
 
     await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("reject");
@@ -1575,6 +1602,10 @@ async function main() {
       "Accepted non-numeric decisions should not appear in the promotion queue.",
     );
     await assertDashboardMatchesSnapshot(sections, afterAcceptedReviews);
+    parityCheckpoints.push({
+      label: "accepted_reviews_saved",
+      state: normalizeSnapshotForParity(afterAcceptedReviews),
+    });
     log("review", "accepted five parser candidates through the UI and verified recent-decision overflow rendering");
 
     const promotionSelect = promotionSection.locator("select").first();
@@ -1711,7 +1742,12 @@ async function main() {
     }
     coveredDashboardHeadings.add("Interventions and evidence windows");
     coveredDashboardHeadings.add("Modality-aware evidence cards");
-    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
+    const afterAcceptedPromotions = await loadPersistedSnapshot();
+    await assertDashboardMatchesSnapshot(sections, afterAcceptedPromotions);
+    parityCheckpoints.push({
+      label: "accepted_promotions_applied",
+      state: normalizeSnapshotForParity(afterAcceptedPromotions),
+    });
     log("promotion", "promoted five accepted decisions through the UI and verified recent-promotion overflow rendering");
 
     for (const target of nonAcceptReviewTargets) {
@@ -1752,6 +1788,10 @@ async function main() {
     assert.ok(afterNonAcceptReviews.reviewDecisions.some((decision) => decision.action === "follow_up"));
     assert.equal(pendingPromotionDecisions(afterNonAcceptReviews).length, 0);
     await assertDashboardMatchesSnapshot(sections, afterNonAcceptReviews);
+    parityCheckpoints.push({
+      label: "non_accept_reviews_saved",
+      state: normalizeSnapshotForParity(afterNonAcceptReviews),
+    });
     log("review", "saved reject and follow-up decisions through the UI and verified the promotion queue emptied");
 
     const reviewUpdateTarget = nonAcceptReviewTargets[0];
@@ -1836,6 +1876,10 @@ async function main() {
     assert.equal(afterReviewUpdatePromotion.measurementPromotions.length, promotionCountBeforeReopenedPromotion + 1);
     assert.equal(pendingPromotionDecisions(afterReviewUpdatePromotion).length, 0);
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
+    parityCheckpoints.push({
+      label: "reopened_review_repromoted",
+      state: normalizeSnapshotForParity(afterReviewUpdatePromotion),
+    });
     log("promotion", "promoted the reopened decision and verified the queue emptied again without duplicating review records");
 
     await waitForSelectOptionValue(parseTaskSelect, resolvedUpdateTarget.task.id);
@@ -1998,7 +2042,12 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
     await timelineSection.getByText("Hurdle report normalized").waitFor();
     coveredDashboardHeadings.add("Interventions and evidence windows");
-    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
+    const afterReportNormalization = await loadPersistedSnapshot();
+    await assertDashboardMatchesSnapshot(sections, afterReportNormalization);
+    parityCheckpoints.push({
+      label: "report_normalized",
+      state: normalizeSnapshotForParity(afterReportNormalization),
+    });
     log("report", "ran report normalization through the UI");
 
     const interventionBackendErrorSnapshot = await loadPersistedSnapshot();
@@ -2139,6 +2188,10 @@ async function main() {
     coveredDashboardHeadings.add("Interventions and evidence windows");
     const snapshot = await loadPersistedSnapshot();
     await assertDashboardMatchesSnapshot(sections, snapshot);
+    parityCheckpoints.push({
+      label: "intervention_saved",
+      state: normalizeSnapshotForParity(snapshot),
+    });
     log("intervention", "saved an intervention through the UI");
 
     documentArchives.forEach((archive) => {
@@ -2160,6 +2213,7 @@ async function main() {
         JSON.stringify(
           {
             backend,
+            checkpoints: parityCheckpoints,
             finalState: normalizeSnapshotForParity(snapshot),
           },
           null,

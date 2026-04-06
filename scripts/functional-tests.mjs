@@ -36,25 +36,33 @@ async function stopServer(server) {
 
   await new Promise((resolve) => {
     let settled = false;
+    let killRequested = false;
     const finish = () => {
       if (settled) {
         return;
       }
       settled = true;
+      clearTimeout(forceKillTimeout);
+      clearTimeout(giveUpTimeout);
       resolve(undefined);
     };
 
-    const timeout = setTimeout(() => {
+    const forceKillTimeout = setTimeout(() => {
+      killRequested = true;
       server.kill("SIGKILL");
-      finish();
     }, 5000);
 
+    const giveUpTimeout = setTimeout(() => {
+      finish();
+    }, 10000);
+
     server.once("exit", () => {
-      clearTimeout(timeout);
       finish();
     });
 
-    server.kill("SIGTERM");
+    if (!killRequested) {
+      server.kill("SIGTERM");
+    }
   });
 }
 

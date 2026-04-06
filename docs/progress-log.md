@@ -65,6 +65,9 @@
 - made the browser suite backend-aware, added pinned file/Postgres UI entrypoints, and extended `verify:meta` so a configured database now runs the full browser flow against Postgres too
 - tightened browser parity so both backend runs reuse the same ZIP archive fixture bytes and can compare parent archive checksums directly
 - hardened the functional and browser runner cleanup path so file-backed verification waits for the Next server to exit before restoring `data/store.json`
+- upgraded browser parity from a final-state-only check to named persisted-state checkpoints across the clinician workflow, so backend drift is caught before the end state converges
+- fixed the runner shutdown helper so forced `SIGKILL` paths still wait for actual process exit before local-state cleanup begins
+- made the non-mutating Postgres seed drift check retry fresh store-to-SQL regeneration before failing, so transient cleanup races stop flaking the full verification gate
 - added a browser parity runner so the same end-to-end clinician workflow now compares normalized final state across file and Postgres backends
 
 ### 2026-04-05

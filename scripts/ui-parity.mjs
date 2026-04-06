@@ -90,12 +90,18 @@ async function main() {
     ]);
 
     assert.deepEqual(
+      postgresReport.checkpoints,
+      fileReport.checkpoints,
+      "File and Postgres backends diverged during the browser workflow before reaching the final state.",
+    );
+
+    assert.deepEqual(
       postgresReport.finalState,
       fileReport.finalState,
       "File and Postgres backends diverged under the same browser workflow.",
     );
 
-    log("matched normalized browser final state across backends");
+    log(`matched ${fileReport.checkpoints.length} browser checkpoints and final state across backends`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
