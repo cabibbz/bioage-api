@@ -124,19 +124,6 @@ async function refreshDashboard(page) {
   await page.getByRole("heading", { name: "Upload a source file", exact: true }).waitFor();
 }
 
-async function waitForSelectOptionContaining(selectLocator, text) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const options = await selectLocator.locator("option").allTextContents();
-    if (options.some((option) => option.includes(text))) {
-      return;
-    }
-
-    await selectLocator.page().waitForTimeout(200);
-  }
-
-  throw new Error(`Timed out waiting for select option containing "${text}".`);
-}
-
 async function waitForSelectOptionValue(selectLocator, value) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const options = await selectLocator.locator("option").evaluateAll((elements) =>
@@ -290,6 +277,11 @@ async function loadPersistedSnapshot() {
   return snapshot;
 }
 
+const canonicalCodeByCandidateDisplayName = new Map([
+  ["ApoB", "apob"],
+  ["C-Reactive Protein", "inflammation_crp"],
+]);
+
 function resolveReviewTarget(snapshot, sourceDocumentFilename, parser, candidateDisplayName) {
   const task = snapshot.parseTasks.find(
     (entry) => entry.sourceDocumentFilename === sourceDocumentFilename && entry.parser === parser,
@@ -302,17 +294,97 @@ function resolveReviewTarget(snapshot, sourceDocumentFilename, parser, candidate
   return { task, candidate };
 }
 
-function resolveCsvReviewTarget(snapshot, sourceDocumentFilename, candidateDisplayName) {
-  return resolveReviewTarget(snapshot, sourceDocumentFilename, "csv_table", candidateDisplayName);
+function resolveReviewSelection(snapshot, parseTaskId, candidateId) {
+  const task = snapshot.parseTasks.find((entry) => entry.id === parseTaskId);
+  assert.ok(task, `Parse task ${parseTaskId} should exist.`);
+
+  const candidate = task.candidates.find((entry) => entry.id === candidateId);
+  assert.ok(candidate, `Candidate ${candidateId} should exist on parse task ${parseTaskId}.`);
+
+  return { task, candidate };
 }
 
-function resolveReviewDecision(snapshot, sourceDocumentFilename, candidateDisplayName) {
-  const { task, candidate } = resolveCsvReviewTarget(snapshot, sourceDocumentFilename, candidateDisplayName);
+function resolveReviewDecisionBySelection(snapshot, parseTaskId, candidateId) {
   const decision = snapshot.reviewDecisions.find(
-    (entry) => entry.parseTaskId === task.id && entry.candidateId === candidate.id,
+    (entry) => entry.parseTaskId === parseTaskId && entry.candidateId === candidateId,
   );
-  assert.ok(decision, `Review decision for ${candidateDisplayName} on ${sourceDocumentFilename} should exist.`);
+  assert.ok(decision, `Review decision for parse task ${parseTaskId} candidate ${candidateId} should exist.`);
   return decision;
+}
+
+function discoverReviewCoverageTargets(snapshot, csvFilenames) {
+  const candidateGroups = snapshot.parseTasks
+    .filter((task) => task.parser === "csv_table" && csvFilenames.has(task.sourceDocumentFilename))
+    .map((task) => ({
+      parseTaskId: task.id,
+      sourceFilename: task.sourceDocumentFilename,
+      candidates: task.candidates
+        .filter(
+          (candidate) =>
+            candidate.numericValue !== undefined && canonicalCodeByCandidateDisplayName.has(candidate.displayName),
+        )
+        .map((candidate) => ({
+          parseTaskId: task.id,
+          candidateId: candidate.id,
+          sourceFilename: task.sourceDocumentFilename,
+          candidateDisplayName: candidate.displayName,
+          proposedCanonicalCode: canonicalCodeByCandidateDisplayName.get(candidate.displayName),
+        }))
+        .sort((left, right) => left.candidateDisplayName.localeCompare(right.candidateDisplayName)),
+    }))
+    .filter((task) => task.candidates.length > 0)
+    .sort((left, right) => left.sourceFilename.localeCompare(right.sourceFilename));
+
+  let reservedGroup = null;
+  for (const candidateGroup of candidateGroups) {
+    if (candidateGroup.candidates.length < 2) {
+      continue;
+    }
+
+    const remainingCandidateCount = candidateGroups
+      .filter((entry) => entry.parseTaskId !== candidateGroup.parseTaskId)
+      .reduce((count, entry) => count + entry.candidates.length, 0);
+
+    if (remainingCandidateCount >= 5) {
+      reservedGroup = candidateGroup;
+      break;
+    }
+  }
+
+  assert.ok(reservedGroup, "UI review coverage requires one reserved CSV task plus five promotable candidates elsewhere.");
+
+  const acceptedReviewTargets = candidateGroups
+    .filter((candidateGroup) => candidateGroup.parseTaskId !== reservedGroup.parseTaskId)
+    .flatMap((candidateGroup) => candidateGroup.candidates)
+    .slice(0, 5)
+    .map((target, index) => ({
+      ...target,
+      reviewerName: `UI clinician ${index + 1}`,
+      note: `${target.candidateDisplayName} review kept for promotion overflow coverage.`,
+    }));
+
+  assert.equal(acceptedReviewTargets.length, 5, "UI review coverage requires five promotable accepted targets.");
+
+  const nonAcceptCandidates = reservedGroup.candidates.slice(0, 2);
+  assert.equal(nonAcceptCandidates.length, 2, "UI review coverage requires two reserved non-accept targets.");
+
+  const nonAcceptReviewTargets = [
+    {
+      ...nonAcceptCandidates[0],
+      action: "reject",
+      stagedCanonicalCode: nonAcceptCandidates[0].proposedCanonicalCode,
+      reviewerName: "UI clinician reject",
+      note: "Rejected during overflow coverage to prove non-promotable review behavior.",
+    },
+    {
+      ...nonAcceptCandidates[1],
+      action: "follow_up",
+      reviewerName: "UI clinician follow-up",
+      note: "Flagged for follow-up during overflow coverage to prove non-accept review behavior.",
+    },
+  ];
+
+  return { acceptedReviewTargets, nonAcceptReviewTargets };
 }
 
 async function expectSectionHeadPill(section, text) {
@@ -817,7 +889,18 @@ async function main() {
       })),
     );
     const [firstArchive, ...additionalArchives] = documentArchives;
-    const latestArchive = documentArchives[documentArchives.length - 1];
+    const missingFileDocumentErrorSnapshot = await loadPersistedSnapshot();
+    await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
+    await documentSection.locator("pre").filter({ hasText: '"error": "Choose a file first."' }).waitFor();
+    errorWorkbenchHeadings.add("Upload a source file");
+    await assertUiStateUnchangedAfterError(
+      page,
+      sections,
+      missingFileDocumentErrorSnapshot,
+      discoveredWorkbenchHeadings,
+    );
+    log("document", "rejected a missing file locally without mutating persisted state");
+
     const documentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill("   ");
     await documentSection.locator('input[type="file"]').setInputFiles({
@@ -885,7 +968,12 @@ async function main() {
     }
     coveredDashboardHeadings.add("Stored source documents");
     coveredDashboardHeadings.add("Document parse tasks");
-    await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
+    const uploadedArchivesSnapshot = await loadPersistedSnapshot();
+    const reviewCoverageTargets = discoverReviewCoverageTargets(
+      uploadedArchivesSnapshot,
+      new Set(documentArchives.map((archive) => archive.childCsvFilename)),
+    );
+    await assertDashboardMatchesSnapshot(sections, uploadedArchivesSnapshot);
     log("document", "uploaded multiple ZIP archives through the UI and verified extracted-child plus parser-list overflow rendering");
 
     const parseTaskSelect = reviewSection.locator("select").nth(0);
@@ -898,60 +986,7 @@ async function main() {
       proposedCanonicalCode: "apob",
       note: "Accepted text-valued observation to prove it stays out of the promotion queue.",
     };
-    const acceptedReviewTargets = [
-      {
-        sourceFilename: latestArchive.childCsvFilename,
-        candidateDisplayName: "ApoB",
-        proposedCanonicalCode: "apob",
-        reviewerName: "UI clinician 1",
-        note: "Latest ApoB review kept for promotion overflow coverage.",
-      },
-      {
-        sourceFilename: latestArchive.childCsvFilename,
-        candidateDisplayName: "C-Reactive Protein",
-        proposedCanonicalCode: "inflammation_crp",
-        reviewerName: "UI clinician 2",
-        note: "Latest CRP review kept for promotion overflow coverage.",
-      },
-      {
-        sourceFilename: additionalArchives[1].childCsvFilename,
-        candidateDisplayName: "ApoB",
-        proposedCanonicalCode: "apob",
-        reviewerName: "UI clinician 3",
-        note: "Second archive ApoB review kept for overflow coverage.",
-      },
-      {
-        sourceFilename: additionalArchives[1].childCsvFilename,
-        candidateDisplayName: "C-Reactive Protein",
-        proposedCanonicalCode: "inflammation_crp",
-        reviewerName: "UI clinician 4",
-        note: "Second archive CRP review kept for overflow coverage.",
-      },
-      {
-        sourceFilename: additionalArchives[0].childCsvFilename,
-        candidateDisplayName: "ApoB",
-        proposedCanonicalCode: "apob",
-        reviewerName: "UI clinician 5",
-        note: "First archive ApoB review kept for overflow coverage.",
-      },
-    ];
-    const nonAcceptReviewTargets = [
-      {
-        sourceFilename: firstArchive.childCsvFilename,
-        candidateDisplayName: "ApoB",
-        action: "reject",
-        stagedCanonicalCode: "apob",
-        reviewerName: "UI clinician reject",
-        note: "Rejected during overflow coverage to prove non-promotable review behavior.",
-      },
-      {
-        sourceFilename: firstArchive.childCsvFilename,
-        candidateDisplayName: "C-Reactive Protein",
-        action: "follow_up",
-        reviewerName: "UI clinician follow-up",
-        note: "Flagged for follow-up during overflow coverage to prove non-accept review behavior.",
-      },
-    ];
+    const { acceptedReviewTargets, nonAcceptReviewTargets } = reviewCoverageTargets;
     const firstReviewTarget = acceptedReviewTargets[0];
 
     await documentSection
@@ -976,14 +1011,13 @@ async function main() {
     log("document", "uploaded a text-valued FHIR observation through the UI for promotion-queue eligibility coverage");
 
     const reviewErrorSnapshot = await loadPersistedSnapshot();
-    const errorReviewTarget = resolveCsvReviewTarget(
+    const errorReviewTarget = resolveReviewSelection(
       reviewErrorSnapshot,
-      firstReviewTarget.sourceFilename,
-      firstReviewTarget.candidateDisplayName,
+      firstReviewTarget.parseTaskId,
+      firstReviewTarget.candidateId,
     );
     await waitForSelectOptionValue(parseTaskSelect, errorReviewTarget.task.id);
     await parseTaskSelect.selectOption({ value: errorReviewTarget.task.id });
-    await waitForSelectOptionContaining(candidateSelect, "ApoB | 78 mg/dL");
     await waitForSelectOptionValue(candidateSelect, errorReviewTarget.candidate.id);
     await candidateSelect.selectOption({ value: errorReviewTarget.candidate.id });
     await waitForReviewCandidateSnapshot(reviewSection, errorReviewTarget.candidate);
@@ -1060,10 +1094,10 @@ async function main() {
 
     for (const target of acceptedReviewTargets) {
       const snapshotBeforeReview = await loadPersistedSnapshot();
-      const resolvedTarget = resolveCsvReviewTarget(
+      const resolvedTarget = resolveReviewSelection(
         snapshotBeforeReview,
-        target.sourceFilename,
-        target.candidateDisplayName,
+        target.parseTaskId,
+        target.candidateId,
       );
       await waitForSelectOptionValue(parseTaskSelect, resolvedTarget.task.id);
       await parseTaskSelect.selectOption({ value: resolvedTarget.task.id });
@@ -1101,10 +1135,10 @@ async function main() {
 
     const promotionSelect = promotionSection.locator("select").first();
     const promotionErrorSnapshot = await loadPersistedSnapshot();
-    const promotionErrorDecision = resolveReviewDecision(
+    const promotionErrorDecision = resolveReviewDecisionBySelection(
       promotionErrorSnapshot,
-      firstReviewTarget.sourceFilename,
-      firstReviewTarget.candidateDisplayName,
+      firstReviewTarget.parseTaskId,
+      firstReviewTarget.candidateId,
     );
     await waitForSelectOptionValue(promotionSelect, promotionErrorDecision.id);
     await promotionSelect.selectOption({ value: promotionErrorDecision.id });
@@ -1134,7 +1168,7 @@ async function main() {
     assert.ok(promotionOptionValues.length > 1, "Promotion reset coverage requires multiple pending decisions.");
     const nonDefaultPromotionDecisionId = promotionOptionValues[promotionOptionValues.length - 1];
     const nonDefaultPromotionDecision = acceptedReviewTargets
-      .map((target) => resolveReviewDecision(promotionErrorSnapshot, target.sourceFilename, target.candidateDisplayName))
+      .map((target) => resolveReviewDecisionBySelection(promotionErrorSnapshot, target.parseTaskId, target.candidateId))
       .find((decision) => decision.id === nonDefaultPromotionDecisionId);
     assert.ok(nonDefaultPromotionDecision, "Expected reset coverage decision to resolve from persisted state.");
     await promotionSelect.selectOption({ value: nonDefaultPromotionDecisionId });
@@ -1151,10 +1185,10 @@ async function main() {
     successfulWorkbenchHeadings.add("Promote accepted decisions");
     for (const [index, target] of acceptedReviewTargets.entries()) {
       const snapshotBeforePromotion = await loadPersistedSnapshot();
-      const decision = resolveReviewDecision(
+      const decision = resolveReviewDecisionBySelection(
         snapshotBeforePromotion,
-        target.sourceFilename,
-        target.candidateDisplayName,
+        target.parseTaskId,
+        target.candidateId,
       );
       await waitForSelectOptionValue(promotionSelect, decision.id);
       await promotionSelect.selectOption({ value: decision.id });
@@ -1193,10 +1227,10 @@ async function main() {
 
     for (const target of nonAcceptReviewTargets) {
       const snapshotBeforeReview = await loadPersistedSnapshot();
-      const resolvedTarget = resolveCsvReviewTarget(
+      const resolvedTarget = resolveReviewSelection(
         snapshotBeforeReview,
-        target.sourceFilename,
-        target.candidateDisplayName,
+        target.parseTaskId,
+        target.candidateId,
       );
       await waitForSelectOptionValue(parseTaskSelect, resolvedTarget.task.id);
       await parseTaskSelect.selectOption({ value: resolvedTarget.task.id });
@@ -1233,16 +1267,16 @@ async function main() {
 
     const reviewUpdateTarget = nonAcceptReviewTargets[0];
     const beforeReviewUpdate = await loadPersistedSnapshot();
-    const existingReviewDecision = resolveReviewDecision(
+    const existingReviewDecision = resolveReviewDecisionBySelection(
       beforeReviewUpdate,
-      reviewUpdateTarget.sourceFilename,
-      reviewUpdateTarget.candidateDisplayName,
+      reviewUpdateTarget.parseTaskId,
+      reviewUpdateTarget.candidateId,
     );
     const reviewDecisionCountBeforeUpdate = beforeReviewUpdate.reviewDecisions.length;
-    const resolvedUpdateTarget = resolveCsvReviewTarget(
+    const resolvedUpdateTarget = resolveReviewSelection(
       beforeReviewUpdate,
-      reviewUpdateTarget.sourceFilename,
-      reviewUpdateTarget.candidateDisplayName,
+      reviewUpdateTarget.parseTaskId,
+      reviewUpdateTarget.candidateId,
     );
     await waitForSelectOptionValue(parseTaskSelect, resolvedUpdateTarget.task.id);
     await parseTaskSelect.selectOption({ value: resolvedUpdateTarget.task.id });
@@ -1275,10 +1309,10 @@ async function main() {
     await mergeDiscoveredWorkbenchHeadings(page, discoveredWorkbenchHeadings);
 
     const afterReviewUpdate = await loadPersistedSnapshot();
-    const updatedReviewDecision = resolveReviewDecision(
+    const updatedReviewDecision = resolveReviewDecisionBySelection(
       afterReviewUpdate,
-      reviewUpdateTarget.sourceFilename,
-      reviewUpdateTarget.candidateDisplayName,
+      reviewUpdateTarget.parseTaskId,
+      reviewUpdateTarget.candidateId,
     );
     assert.equal(afterReviewUpdate.reviewDecisions.length, reviewDecisionCountBeforeUpdate);
     assert.equal(updatedReviewDecision.id, existingReviewDecision.id);

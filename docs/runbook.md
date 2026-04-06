@@ -71,7 +71,7 @@ This runs:
 - browser workbench coverage now requires both a successful path and an invalid-action path for every discovered interactive workbench
 - dashboard read-panel coverage that asserts the signal board, source documents, parse tasks, timeline, and clinician-prep surfaces update or remain visible through the UI flow
 - live browser assertions that compare dashboard counters and signal-board titles against the persisted backend snapshot after each workflow step and prove failed UI actions do not mutate persisted state
-- the document workbench now returns a stable client-side error for blank source-system input and the review workbench does the same for blank reviewer input, and the browser suite verifies both local guards
+- the document workbench now returns stable client-side errors for missing-file and blank source-system input, the review workbench does the same for blank reviewer input, and the browser suite verifies those local guards
 - the document workbench reset path now restores the default source-system and clears the actual file input, and the browser suite verifies that reset behavior before continuing the upload flow
 - the browser suite now verifies reset behavior across every workbench: document clears the real file input, review restores the current candidate state, promotion restores the first pending decision, and report/intervention restore their demo form state while clearing local result output
 - the browser suite now also verifies selection-driven snapshot cards in review and promotion, so changing the selected candidate or decision must update the visible context before any action is taken
@@ -81,6 +81,7 @@ This runs:
 - review now also clears stale result payloads when its form fields change in place, and the browser suite verifies that placeholder reset before the next save/reset path continues
 - the browser document path now uploads multiple ZIP archives and verifies extracted-child rendering plus parser-list overflow behavior on `/`
 - the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
+- the browser suite now discovers its CSV review and promotion targets from the live persisted parse-task snapshot after archive upload instead of pinning the workflow to hardcoded candidate filenames
 - the browser suite now creates enough accepted reviews and promotions to verify overflow behavior for the capped recent-decisions and recent-promotions feeds
 - the browser suite now also saves `reject` and `follow_up` review decisions through the UI and verifies the promotion workbench returns to the empty pending state once all accepted decisions are consumed
 - the browser suite now also revisits the review workbench after promotion overflow so non-accept actions are exercised after the accepted queue has been drained
