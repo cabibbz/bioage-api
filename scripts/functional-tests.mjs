@@ -695,7 +695,7 @@ function createTextFhirResource() {
       code: {
         text: "ApoB interpretation",
       },
-      valueString: "borderline high",
+      valueString: "BORDERLINE   HIGH",
       effectiveDateTime: "2026-04-03T09:00:00.000Z",
     }),
   );
@@ -1276,6 +1276,59 @@ const scenarios = [
       assert.ok(persistedMeasurement);
       assert.equal(persistedMeasurement.textValue, "no common variant detected");
       assert.ok(persistedMeasurement.interpretation.includes("categorical result no common variant detected"));
+    },
+  },
+  {
+    name: "report-intake-normalizes-qualitative-lab-wording",
+    covers: ["POST /api/intake/report"],
+    coverageType: "success",
+    async run() {
+      const before = await getPatientSnapshot();
+      const report = await postJson("/api/intake/report", {
+        patientId,
+        vendor: "Functional qualitative panel",
+        observedAt: "2026-04-04T11:00:00.000Z",
+        entries: [
+          { name: "Apolipoprotein B", textValue: "BORDERLINE   HIGH" },
+          { name: "CRP", textValue: "NOT DETECTED" },
+        ],
+      });
+
+      assert.equal(report.normalizationSummary.totalEntries, 2);
+      assert.equal(report.normalizationSummary.mappedEntries, 2);
+      assert.equal(report.normalizationSummary.unmappedEntries, 0);
+
+      const apobMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "apob");
+      assert.ok(apobMeasurement);
+      assert.equal(apobMeasurement.textValue, "borderline high");
+      assert.ok(apobMeasurement.note.includes('from "BORDERLINE HIGH" to "borderline high"'));
+
+      const crpMeasurement = report.measurements.find((measurement) => measurement.canonicalCode === "inflammation_crp");
+      assert.ok(crpMeasurement);
+      assert.equal(crpMeasurement.textValue, "not detected");
+      assert.ok(crpMeasurement.note.includes('from "NOT DETECTED" to "not detected"'));
+
+      const after = await getPatientSnapshot();
+      assertCountDelta(countSnapshot(before), countSnapshot(after), {
+        measurements: 2,
+        reportIngestions: 1,
+        timeline: 1,
+      });
+
+      const persistedApobMeasurement = after.patient.measurements.find(
+        (measurement) => measurement.canonicalCode === "apob" && measurement.observedAt === "2026-04-04T11:00:00.000Z",
+      );
+      assert.ok(persistedApobMeasurement);
+      assert.equal(persistedApobMeasurement.textValue, "borderline high");
+      assert.ok(persistedApobMeasurement.interpretation.includes("text or categorical result borderline high"));
+
+      const persistedCrpMeasurement = after.patient.measurements.find(
+        (measurement) =>
+          measurement.canonicalCode === "inflammation_crp" && measurement.observedAt === "2026-04-04T11:00:00.000Z",
+      );
+      assert.ok(persistedCrpMeasurement);
+      assert.equal(persistedCrpMeasurement.textValue, "not detected");
+      assert.ok(persistedCrpMeasurement.interpretation.includes("text or categorical result not detected"));
     },
   },
   {
@@ -1898,6 +1951,7 @@ const scenarios = [
       assert.equal(promoted.measurement.textValue, "borderline high");
       assert.equal(promoted.measurement.value, undefined);
       assert.equal(promoted.measurement.unit, undefined);
+      assert.ok(promoted.measurement.interpretation.includes("text or categorical result borderline high"));
       assertCountDelta(countSnapshot(beforePromotion), countSnapshot(afterPromotion), {
         measurements: 1,
         measurementPromotions: 1,

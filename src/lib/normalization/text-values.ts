@@ -19,11 +19,76 @@ function normalizeWhitespace(value: string) {
 }
 
 function buildCanonicalizationNote(title: string, sourceValue: string, normalizedValue: string) {
-  if (normalizeWhitespace(sourceValue).toLowerCase() === normalizedValue.toLowerCase()) {
+  if (normalizeWhitespace(sourceValue) === normalizedValue) {
     return undefined;
   }
 
   return `Normalized reported ${title} notation from "${normalizeWhitespace(sourceValue)}" to "${normalizedValue}".`;
+}
+
+function normalizeQualitativeKey(value: string) {
+  return normalizeWhitespace(value)
+    .toLowerCase()
+    .replace(/[_]+/g, " ")
+    .replace(/\s*-\s*/g, "-");
+}
+
+function normalizeGenericQualitativeText(title: string, sourceValue: string): TextNormalizationResult {
+  const normalizedSource = normalizeWhitespace(sourceValue);
+  const qualitativeKey = normalizeQualitativeKey(sourceValue);
+
+  let normalizedValue: string | undefined;
+
+  if (/^borderline[\s-]+high$/.test(qualitativeKey)) {
+    normalizedValue = "borderline high";
+  } else if (/^borderline[\s-]+low$/.test(qualitativeKey)) {
+    normalizedValue = "borderline low";
+  } else if (/^(positive|pos|positive result)$/.test(qualitativeKey)) {
+    normalizedValue = "positive";
+  } else if (/^(negative|neg|negative result)$/.test(qualitativeKey)) {
+    normalizedValue = "negative";
+  } else if (/^(detected|detected result)$/.test(qualitativeKey)) {
+    normalizedValue = "detected";
+  } else if (/^(not[\s-]*detected|none detected|undetected)$/.test(qualitativeKey)) {
+    normalizedValue = "not detected";
+  } else if (/^reactive$/.test(qualitativeKey)) {
+    normalizedValue = "reactive";
+  } else if (/^non[\s-]*reactive$/.test(qualitativeKey)) {
+    normalizedValue = "non-reactive";
+  } else if (/^(normal|within normal limits)$/.test(qualitativeKey)) {
+    normalizedValue = "normal";
+  } else if (/^(abnormal|out of range)$/.test(qualitativeKey)) {
+    normalizedValue = "abnormal";
+  } else if (/^(equivocal|indeterminate)$/.test(qualitativeKey)) {
+    normalizedValue = qualitativeKey;
+  } else if (/^(present|absent)$/.test(qualitativeKey)) {
+    normalizedValue = qualitativeKey;
+  }
+
+  if (!normalizedValue) {
+    return {
+      textValue: normalizedSource,
+    };
+  }
+
+  return {
+    textValue: normalizedValue,
+    note: buildCanonicalizationNote(title, sourceValue, normalizedValue),
+  };
+}
+
+function finalizeTextNormalization(
+  title: string,
+  sourceValue: string,
+  result: TextNormalizationResult,
+): TextNormalizationResult {
+  const normalizedSource = normalizeWhitespace(sourceValue);
+
+  if (result.note || result.textValue !== normalizedSource) {
+    return result;
+  }
+
+  return normalizeGenericQualitativeText(title, sourceValue);
 }
 
 function normalizeApoeAllelePair(input: string) {
@@ -79,10 +144,10 @@ function normalizeApoeGenotype(sourceValue: string): TextNormalizationResult {
     };
   }
 
-  return {
+  return finalizeTextNormalization("ApoE genotype", sourceValue, {
     textValue: normalizedValue,
     note: buildCanonicalizationNote("ApoE genotype", sourceValue, normalizedValue),
-  };
+  });
 }
 
 function normalizeMthfrStatus(sourceValue: string): TextNormalizationResult {
@@ -134,15 +199,15 @@ function normalizeMthfrStatus(sourceValue: string): TextNormalizationResult {
   }
 
   if (!normalizedValue) {
-    return {
+    return finalizeTextNormalization("MTHFR status", sourceValue, {
       textValue: normalizeWhitespace(sourceValue),
-    };
+    });
   }
 
-  return {
+  return finalizeTextNormalization("MTHFR status", sourceValue, {
     textValue: normalizedValue,
     note: buildCanonicalizationNote("MTHFR status", sourceValue, normalizedValue),
-  };
+  });
 }
 
 export function normalizeTextMeasurementValue(
@@ -157,7 +222,5 @@ export function normalizeTextMeasurementValue(
     return normalizeMthfrStatus(sourceValue);
   }
 
-  return {
-    textValue: normalizeWhitespace(sourceValue),
-  };
+  return normalizeGenericQualitativeText(definition.title, sourceValue);
 }
