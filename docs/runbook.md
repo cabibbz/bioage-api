@@ -103,6 +103,7 @@ This runs:
 - report, intervention, and document intake routes now also reject malformed backend timestamp fields, and the functional suite verifies invalid `observedAt` and `occurredAt` payloads directly
 - Postgres bootstrap plus the same functional suite when `DATABASE_URL` is configured
 - backend parity verification that reruns the same scenarios against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
+- browser parity verification that reruns the same clinician workflow against file and Postgres then compares normalized persisted state when `DATABASE_URL` is configured
 
 For the functional suite only:
 
@@ -128,6 +129,12 @@ With `DATABASE_URL` configured, you can also run the same UI flow against Postgr
 
 ```bash
 npm run test:ui:postgres
+```
+
+For browser parity only:
+
+```bash
+npm run test:ui:parity
 ```
 
 The UI script installs Playwright Chromium automatically on first run if it is missing.

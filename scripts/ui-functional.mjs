@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import os from "node:os";
-import { mkdtemp, readdir, rm, copyFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, copyFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import JSZip from "jszip";
@@ -439,6 +439,144 @@ function formatDate(value) {
 
 function normalizeWhitespace(value) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function sortNormalizedList(entries) {
+  return [...entries].sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+}
+
+function normalizeCandidates(candidates) {
+  return sortNormalizedList(
+    candidates.map((candidate) => ({
+      sourcePath: candidate.sourcePath,
+      displayName: candidate.displayName,
+      valueLabel: candidate.valueLabel,
+      numericValue: candidate.numericValue ?? null,
+      textValue: candidate.textValue ?? null,
+      unit: candidate.unit ?? null,
+      loincCode: candidate.loincCode ?? null,
+      observedAt: candidate.observedAt ?? null,
+      referenceRange: candidate.referenceRange ?? null,
+    })),
+  );
+}
+
+function normalizeSnapshotForParity(snapshot) {
+  return {
+    patient: {
+      displayName: snapshot.patient.displayName,
+      chronologicalAge: snapshot.patient.chronologicalAge,
+      focus: snapshot.patient.focus,
+      measurements: sortNormalizedList(
+        snapshot.patient.measurements.map((measurement) => ({
+          title: measurement.title,
+          canonicalCode: measurement.canonicalCode,
+          modality: measurement.modality,
+          sourceVendor: measurement.sourceVendor,
+          observedAt: measurement.observedAt,
+          value: measurement.value,
+          unit: measurement.unit ?? null,
+          interpretation: measurement.interpretation,
+          evidenceStatus: measurement.evidenceStatus,
+          confidenceLabel: measurement.confidenceLabel,
+          deltaLabel: measurement.deltaLabel ?? null,
+        })),
+      ),
+      timeline: sortNormalizedList(
+        snapshot.patient.timeline.map((event) => ({
+          type: event.type,
+          title: event.title,
+          detail: event.detail,
+        })),
+      ),
+    },
+    reportIngestions: sortNormalizedList(
+      snapshot.reportIngestions.map((ingestion) => ({
+        vendor: ingestion.vendor,
+        observedAt: ingestion.observedAt,
+        mappedMeasurements: sortNormalizedList(
+          ingestion.mappedMeasurements.map((measurement) => ({
+            canonicalCode: measurement.canonicalCode,
+            title: measurement.title,
+            modality: measurement.modality,
+            sourceVendor: measurement.sourceVendor,
+            sourceField: measurement.sourceField,
+            value: measurement.value,
+            unit: measurement.unit ?? null,
+            observedAt: measurement.observedAt,
+            confidence: measurement.confidence,
+            note: measurement.note,
+          })),
+        ),
+        unmappedEntries: sortNormalizedList(
+          ingestion.unmappedEntries.map((entry) => ({
+            sourceField: entry.sourceField,
+            value: entry.value,
+            unit: entry.unit ?? null,
+          })),
+        ),
+      })),
+    ),
+    sourceDocuments: sortNormalizedList(
+      snapshot.sourceDocuments.map((document) => ({
+        sourceSystem: document.sourceSystem,
+        ingestionChannel: document.ingestionChannel,
+        originalFilename: document.originalFilename,
+        mimeType: document.mimeType,
+        byteSize: document.byteSize,
+        // Chromium-backed virtual uploads keep ZIP contents logically equivalent here,
+        // but parent archive bytes are not stable enough across separate browser runs for parity.
+        checksumSha256: document.classification === "zip_archive" ? null : document.checksumSha256,
+        classification: document.classification,
+        status: document.status,
+        observedAt: document.observedAt ?? null,
+        archiveEntryPath: document.archiveEntryPath ?? null,
+        hasParentDocument: Boolean(document.parentDocumentId),
+        archiveEntries: sortNormalizedList(
+          (document.archiveEntries ?? []).map((entry) => ({
+            path: entry.path,
+            isDirectory: entry.isDirectory,
+            classification: entry.classification,
+          })),
+        ),
+      })),
+    ),
+    parseTasks: sortNormalizedList(
+      snapshot.parseTasks.map((task) => ({
+        sourceDocumentFilename: task.sourceDocumentFilename,
+        sourceDocumentClassification: task.sourceDocumentClassification,
+        mode: task.mode,
+        parser: task.parser,
+        status: task.status,
+        summary: task.summary,
+        detail: task.detail,
+        candidateCount: task.candidateCount,
+        metadata: sortNormalizedList(task.metadata),
+        candidates: normalizeCandidates(task.candidates),
+        errorMessage: task.errorMessage ?? null,
+      })),
+    ),
+    reviewDecisions: sortNormalizedList(
+      snapshot.reviewDecisions.map((decision) => ({
+        candidateDisplayName: decision.candidateDisplayName,
+        candidateValueLabel: decision.candidateValueLabel,
+        candidateSourcePath: decision.candidateSourcePath,
+        action: decision.action,
+        reviewerName: decision.reviewerName,
+        note: decision.note ?? null,
+        proposedCanonicalCode: decision.proposedCanonicalCode ?? null,
+        proposedTitle: decision.proposedTitle ?? null,
+        proposedModality: decision.proposedModality ?? null,
+      })),
+    ),
+    measurementPromotions: sortNormalizedList(
+      snapshot.measurementPromotions.map((promotion) => ({
+        canonicalCode: promotion.canonicalCode,
+        title: promotion.title,
+        modality: promotion.modality,
+      })),
+    ),
+  };
 }
 
 async function loadPersistedSnapshot() {
@@ -1053,16 +1191,17 @@ async function main() {
     coveredDashboardHeadings.add("Clinician prep");
     await assertDashboardMatchesSnapshot(sections, await loadPersistedSnapshot());
 
-    const documentArchives = await Promise.all(
-      ["ui-functional-a", "ui-functional-b", "ui-functional-c", "ui-functional-d"].map(async (prefix) => ({
+    const documentArchives = [];
+    for (const prefix of ["ui-functional-a", "ui-functional-b", "ui-functional-c", "ui-functional-d"]) {
+      documentArchives.push({
         prefix,
         archiveFilename: `${prefix}.zip`,
         childCsvFilename: `${prefix}-labs.csv`,
         childTextFilename: `${prefix}-note.txt`,
         sourceSystem: `UI functional upload ${prefix.toUpperCase()}`,
         buffer: await zipFixture(prefix),
-      })),
-    );
+      });
+    }
     const [firstArchive, ...additionalArchives] = documentArchives;
     const documentBackendErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.locator("label").filter({ hasText: "Source system" }).locator("input").fill(firstArchive.sourceSystem);
@@ -2023,6 +2162,19 @@ async function main() {
     assert.deepEqual([...errorWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
     assert.deepEqual([...backendErrorWorkbenchHeadings].sort(), [...discoveredWorkbenchHeadings].sort());
     assert.deepEqual([...coveredDashboardHeadings].sort(), discoveredDashboardHeadings);
+    if (process.env.UI_FUNCTIONAL_REPORT_PATH?.trim()) {
+      await writeFile(
+        process.env.UI_FUNCTIONAL_REPORT_PATH.trim(),
+        JSON.stringify(
+          {
+            backend,
+            finalState: normalizeSnapshotForParity(snapshot),
+          },
+          null,
+          2,
+        ),
+      );
+    }
     log("verification", "page interactions, error handling, and persisted state matched");
   } finally {
     await browser?.close();
