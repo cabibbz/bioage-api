@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type SelectedFileState = {
@@ -22,10 +22,6 @@ export function DocumentUploadWorkbench() {
     () => ".pdf,.png,.jpg,.jpeg,.json,.zip,.xml,.html,.htm,.csv,.xls,.xlsx,.txt",
     [],
   );
-
-  useEffect(() => {
-    setResult("");
-  }, [selectedFile?.preview, sourceSystem]);
 
   async function handleSubmit() {
     if (!selectedFile) {
@@ -66,6 +62,8 @@ export function DocumentUploadWorkbench() {
   }
 
   function handleFileChange(file: File | null) {
+    setResult("");
+
     if (!file) {
       setSelectedFile(null);
       return;
@@ -100,7 +98,13 @@ export function DocumentUploadWorkbench() {
       <div className="field-grid">
         <label className="field">
           <span className="detail-label">Source system</span>
-          <input value={sourceSystem} onChange={(event) => setSourceSystem(event.target.value)} />
+          <input
+            value={sourceSystem}
+            onChange={(event) => {
+              setSourceSystem(event.target.value);
+              setResult("");
+            }}
+          />
         </label>
 
         <label className="field">

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const demoPayload = {
@@ -21,10 +21,6 @@ export function UploadWorkbench() {
   const [payloadText, setPayloadText] = useState(JSON.stringify(demoPayload.entries, null, 2));
   const [result, setResult] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    setResult("");
-  }, [payloadText, vendor]);
 
   async function handleSubmit() {
     try {
@@ -93,7 +89,13 @@ export function UploadWorkbench() {
       <div className="field-grid">
         <label className="field">
           <span className="detail-label">Vendor</span>
-          <select value={vendor} onChange={(event) => setVendor(event.target.value)}>
+          <select
+            value={vendor}
+            onChange={(event) => {
+              setVendor(event.target.value);
+              setResult("");
+            }}
+          >
             <option value="TruDiagnostic">TruDiagnostic</option>
             <option value="Hurdle">Hurdle</option>
             <option value="Quest panel via Terra parser">Quest panel via Terra parser</option>
@@ -108,7 +110,13 @@ export function UploadWorkbench() {
 
       <label className="field" style={{ marginTop: 16 }}>
         <span className="detail-label">Entries JSON</span>
-        <textarea value={payloadText} onChange={(event) => setPayloadText(event.target.value)} />
+        <textarea
+          value={payloadText}
+          onChange={(event) => {
+            setPayloadText(event.target.value);
+            setResult("");
+          }}
+        />
         <p className="field-note">
           Keep this intentionally simple for v1. Upload UI and vendor-specific parsers can sit on top later.
         </p>

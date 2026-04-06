@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const demoIntervention = {
@@ -17,10 +17,6 @@ export function InterventionWorkbench() {
   const [occurredAt, setOccurredAt] = useState("2026-04-04");
   const [result, setResult] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    setResult("");
-  }, [detail, occurredAt, title]);
 
   async function handleSubmit() {
     try {
@@ -98,18 +94,37 @@ export function InterventionWorkbench() {
       <div className="field-grid">
         <label className="field">
           <span className="detail-label">Title</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input
+            value={title}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              setResult("");
+            }}
+          />
         </label>
 
         <label className="field">
           <span className="detail-label">Date</span>
-          <input type="date" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />
+          <input
+            type="date"
+            value={occurredAt}
+            onChange={(event) => {
+              setOccurredAt(event.target.value);
+              setResult("");
+            }}
+          />
         </label>
       </div>
 
       <label className="field" style={{ marginTop: 16 }}>
         <span className="detail-label">Detail</span>
-        <textarea value={detail} onChange={(event) => setDetail(event.target.value)} />
+        <textarea
+          value={detail}
+          onChange={(event) => {
+            setDetail(event.target.value);
+            setResult("");
+          }}
+        />
       </label>
 
       <div className="actions">
