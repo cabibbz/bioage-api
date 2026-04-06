@@ -27,7 +27,15 @@ export function UploadWorkbench() {
     setResult("");
 
     try {
-      const parsedEntries = JSON.parse(payloadText) as unknown;
+      let parsedEntries: unknown;
+
+      try {
+        parsedEntries = JSON.parse(payloadText) as unknown;
+      } catch {
+        setResult(JSON.stringify({ error: "Entries JSON must be valid JSON." }, null, 2));
+        return;
+      }
+
       const response = await fetch("/api/intake/report", {
         method: "POST",
         headers: {

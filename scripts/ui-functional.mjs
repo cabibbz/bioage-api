@@ -1190,11 +1190,21 @@ async function main() {
     await assertDashboardMatchesSnapshot(sections, afterReviewUpdatePromotion);
     log("review", "removed the promoted candidate from the editable review queue after promotion");
 
+    const reportJsonErrorSnapshot = await loadPersistedSnapshot();
+    await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill("{");
+    await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
+    await reportSection
+      .locator("pre")
+      .filter({ hasText: '"error": "Entries JSON must be valid JSON."' })
+      .waitFor();
+    errorWorkbenchHeadings.add("Report intake and normalization");
+    await assertUiStateUnchangedAfterError(page, sections, reportJsonErrorSnapshot, discoveredWorkbenchHeadings);
+    log("report", "rejected malformed JSON locally without mutating persisted state");
+
     const reportErrorSnapshot = await loadPersistedSnapshot();
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
     await reportSection.locator("pre").filter({ hasText: '"error": "entries must be an array."' }).waitFor();
-    errorWorkbenchHeadings.add("Report intake and normalization");
     await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
     log("report", "rejected invalid entries payload without mutating persisted state");
 
