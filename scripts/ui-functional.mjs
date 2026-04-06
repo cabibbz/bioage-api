@@ -189,6 +189,49 @@ async function assertReviewFormState(section, expected) {
   throw new Error(`Timed out waiting for review form state ${JSON.stringify(expected)}.`);
 }
 
+async function waitForInputValue(locator, expectedValue) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await locator.inputValue()) === expectedValue) {
+      return;
+    }
+
+    await locator.page().waitForTimeout(200);
+  }
+
+  throw new Error(`Timed out waiting for input value ${JSON.stringify(expectedValue)}.`);
+}
+
+async function assertDocumentDraftState(section, expected) {
+  const sourceSystemInput = section.locator("label").filter({ hasText: "Source system" }).locator("input");
+  await waitForInputValue(sourceSystemInput, expected.sourceSystem);
+
+  if (expected.filePreviewText) {
+    await section.locator(".field-note").filter({ hasText: expected.filePreviewText }).waitFor();
+    return;
+  }
+
+  await section
+    .locator(".field-note")
+    .filter({ hasText: "Choose a PDF, image, JSON, XML, CSV, XLS/XLSX, TXT, HTML, or ZIP file." })
+    .waitFor();
+}
+
+async function assertReportDraftState(section, expected) {
+  const vendorSelect = section.locator("label").filter({ hasText: "Vendor" }).locator("select");
+  const payloadArea = section.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea");
+  await waitForInputValue(vendorSelect, expected.vendor);
+  await waitForInputValue(payloadArea, expected.payloadText);
+}
+
+async function assertInterventionDraftState(section, expected) {
+  const titleInput = section.locator("label").filter({ hasText: "Title" }).locator("input");
+  const dateInput = section.locator("label").filter({ hasText: "Date" }).locator("input");
+  const detailArea = section.locator("label").filter({ hasText: "Detail" }).locator("textarea");
+  await waitForInputValue(titleInput, expected.title);
+  await waitForInputValue(dateInput, expected.occurredAt);
+  await waitForInputValue(detailArea, expected.detail);
+}
+
 async function waitForReviewMappingState(section, expectedValue, expectedDisabled) {
   const mappingSelect = section.locator("label").filter({ hasText: "Proposed canonical mapping" }).locator("select");
 
@@ -243,6 +286,11 @@ async function waitForPromotionSnapshot(section, decision) {
   }
 
   throw new Error(`Timed out waiting for promotion snapshot for ${decision.candidateDisplayName}.`);
+}
+
+async function assertPromotionSelectionState(section, expectedDecisionId) {
+  const decisionSelect = section.locator("label").filter({ hasText: "Accepted review decision" }).locator("select");
+  await waitForInputValue(decisionSelect, expectedDecisionId);
 }
 
 function countFlaggedSignals(snapshot) {
@@ -892,6 +940,10 @@ async function main() {
     const missingFileDocumentErrorSnapshot = await loadPersistedSnapshot();
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: '"error": "Choose a file first."' }).waitFor();
+    await assertDocumentDraftState(documentSection, {
+      sourceSystem: "Manual clinic upload",
+      filePreviewText: null,
+    });
     errorWorkbenchHeadings.add("Upload a source file");
     await assertUiStateUnchangedAfterError(
       page,
@@ -910,6 +962,10 @@ async function main() {
     });
     await documentSection.getByRole("button", { name: "Store source document", exact: true }).click();
     await documentSection.locator("pre").filter({ hasText: '"error": "Choose a source system first."' }).waitFor();
+    await assertDocumentDraftState(documentSection, {
+      sourceSystem: "   ",
+      filePreviewText: firstArchive.archiveFilename,
+    });
     errorWorkbenchHeadings.add("Upload a source file");
     await assertUiStateUnchangedAfterError(page, sections, documentErrorSnapshot, discoveredWorkbenchHeadings);
     log("document", "rejected a blank source system locally without mutating persisted state");
@@ -1027,6 +1083,15 @@ async function main() {
       .locator("pre")
       .filter({ hasText: '"error": "Reviewer name is required."' })
       .waitFor();
+    await assertReviewFormState(reviewSection, {
+      action: "accept",
+      reviewerName: "   ",
+      proposedCanonicalCode: "",
+      note: "Looks directionally valid. Hold as reviewed candidate before promotion.",
+    });
+    await waitForReviewCandidateSnapshot(reviewSection, errorReviewTarget.candidate);
+    await waitForInputValue(parseTaskSelect, errorReviewTarget.task.id);
+    await waitForInputValue(candidateSelect, errorReviewTarget.candidate.id);
     errorWorkbenchHeadings.add("Adjudicate parser candidates");
     await assertUiStateUnchangedAfterError(page, sections, reviewErrorSnapshot, discoveredWorkbenchHeadings);
     log("review", "rejected a blank reviewer locally without mutating persisted state");
@@ -1160,6 +1225,8 @@ async function main() {
       .locator("pre")
       .filter({ hasText: '"error": "Review decision missing-review-decision was not found."' })
       .waitFor();
+    await assertPromotionSelectionState(promotionSection, promotionErrorDecision.id);
+    await waitForPromotionSnapshot(promotionSection, promotionErrorDecision);
     errorWorkbenchHeadings.add("Promote accepted decisions");
     await assertUiStateUnchangedAfterError(page, sections, promotionErrorSnapshot, discoveredWorkbenchHeadings);
     log("promotion", "rejected an invalid promotion request without mutating persisted state");
@@ -1395,6 +1462,10 @@ async function main() {
       .locator("pre")
       .filter({ hasText: '"error": "Entries JSON must be valid JSON."' })
       .waitFor();
+    await assertReportDraftState(reportSection, {
+      vendor: "TruDiagnostic",
+      payloadText: "{",
+    });
     errorWorkbenchHeadings.add("Report intake and normalization");
     await assertUiStateUnchangedAfterError(page, sections, reportJsonErrorSnapshot, discoveredWorkbenchHeadings);
     log("report", "rejected malformed JSON locally without mutating persisted state");
@@ -1403,6 +1474,10 @@ async function main() {
     await reportSection.locator("label").filter({ hasText: "Entries JSON" }).locator("textarea").fill('{"not":"an array"}');
     await reportSection.getByRole("button", { name: "Run normalization", exact: true }).click();
     await reportSection.locator("pre").filter({ hasText: '"error": "Entries JSON must be an array."' }).waitFor();
+    await assertReportDraftState(reportSection, {
+      vendor: "TruDiagnostic",
+      payloadText: '{"not":"an array"}',
+    });
     await assertUiStateUnchangedAfterError(page, sections, reportErrorSnapshot, discoveredWorkbenchHeadings);
     log("report", "rejected a non-array entries payload locally without mutating persisted state");
 
@@ -1452,6 +1527,11 @@ async function main() {
       .locator("pre")
       .filter({ hasText: '"error": "Choose a valid date first."' })
       .waitFor();
+    await assertInterventionDraftState(interventionSection, {
+      title: "Omega-3 dose increased",
+      occurredAt: "",
+      detail: "Raised EPA/DHA intake and paired with repeat inflammation review in 60 days.",
+    });
     errorWorkbenchHeadings.add("Tag a protocol change");
     await assertUiStateUnchangedAfterError(page, sections, interventionDateErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected a blank intervention date locally without mutating persisted state");
@@ -1460,6 +1540,11 @@ async function main() {
     await interventionSection.locator("label").filter({ hasText: "Title" }).locator("input").fill("   ");
     await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
     await interventionSection.locator("pre").filter({ hasText: '"error": "Title is required."' }).waitFor();
+    await assertInterventionDraftState(interventionSection, {
+      title: "   ",
+      occurredAt: "2026-04-04",
+      detail: "Raised EPA/DHA intake and paired with repeat inflammation review in 60 days.",
+    });
     await assertUiStateUnchangedAfterError(page, sections, interventionTitleErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected a blank intervention title locally without mutating persisted state");
 
@@ -1472,6 +1557,11 @@ async function main() {
       .fill("   ");
     await interventionSection.getByRole("button", { name: "Save intervention", exact: true }).click();
     await interventionSection.locator("pre").filter({ hasText: '"error": "Detail is required."' }).waitFor();
+    await assertInterventionDraftState(interventionSection, {
+      title: "UI intervention checkpoint",
+      occurredAt: "2026-04-04",
+      detail: "   ",
+    });
     await assertUiStateUnchangedAfterError(page, sections, interventionDetailErrorSnapshot, discoveredWorkbenchHeadings);
     log("intervention", "rejected a blank intervention detail locally without mutating persisted state");
 
