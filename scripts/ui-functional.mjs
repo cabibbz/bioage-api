@@ -1041,6 +1041,8 @@ async function main() {
     log("review", "accepted a text-valued observation and verified it stayed out of the promotion queue");
 
     await reviewSection.locator("label").filter({ hasText: "Action" }).locator("select").selectOption("reject");
+    await reviewSection.locator("pre").filter({ hasText: "Review-decision output will appear here." }).waitFor();
+    log("review", "cleared stale result output when editing review form inputs");
     await waitForReviewMappingState(reviewSection, "", true);
     await reviewSection.locator("label").filter({ hasText: "Reviewer" }).locator("input").fill("Unsaved UI reviewer");
     await reviewSection.locator("label").filter({ hasText: "Note" }).locator("textarea").fill("Unsaved UI note");

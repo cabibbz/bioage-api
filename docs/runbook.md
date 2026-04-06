@@ -78,6 +78,7 @@ This runs:
 - the browser suite now also verifies post-promotion retargeting: if the currently selected review candidate or promotion decision disappears, the workbench must auto-select a valid remaining record and update the visible form/snapshot state
 - review and promotion now clear stale result payloads when selection changes, and the browser suite verifies the placeholder returns before the next action is taken
 - document, report, and intervention now also clear stale result payloads when their form inputs change, and the browser suite verifies those placeholders return before the next action
+- review now also clears stale result payloads when its form fields change in place, and the browser suite verifies that placeholder reset before the next save/reset path continues
 - the browser document path now uploads multiple ZIP archives and verifies extracted-child rendering plus parser-list overflow behavior on `/`
 - the browser suite now compares rendered source-document cards, parse-task cards, timeline entries, recent review decisions, and recent promotions against the visible persisted-state slice for each panel
 - the browser suite now creates enough accepted reviews and promotions to verify overflow behavior for the capped recent-decisions and recent-promotions feeds

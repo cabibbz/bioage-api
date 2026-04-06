@@ -165,6 +165,26 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
     setResult("");
   }
 
+  function handleActionChange(nextAction: typeof action) {
+    setAction(nextAction);
+    setResult("");
+  }
+
+  function handleReviewerNameChange(nextReviewerName: string) {
+    setReviewerName(nextReviewerName);
+    setResult("");
+  }
+
+  function handleProposedCanonicalCodeChange(nextCanonicalCode: string) {
+    setProposedCanonicalCode(nextCanonicalCode);
+    setResult("");
+  }
+
+  function handleNoteChange(nextNote: string) {
+    setNote(nextNote);
+    setResult("");
+  }
+
   return (
     <section className="panel section-panel">
       <div className="section-head">
@@ -216,7 +236,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
           <div className="field-grid" style={{ marginTop: 16 }}>
             <label className="field">
               <span className="detail-label">Action</span>
-              <select value={action} onChange={(event) => setAction(event.target.value as typeof action)}>
+              <select value={action} onChange={(event) => handleActionChange(event.target.value as typeof action)}>
                 <option value="accept">Accept candidate</option>
                 <option value="reject">Reject candidate</option>
                 <option value="follow_up">Flag for follow-up</option>
@@ -225,7 +245,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
 
             <label className="field">
               <span className="detail-label">Reviewer</span>
-              <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)} />
+              <input value={reviewerName} onChange={(event) => handleReviewerNameChange(event.target.value)} />
             </label>
           </div>
 
@@ -234,7 +254,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
             <select
               disabled={action !== "accept"}
               value={proposedCanonicalCode}
-              onChange={(event) => setProposedCanonicalCode(event.target.value)}
+              onChange={(event) => handleProposedCanonicalCodeChange(event.target.value)}
             >
               <option value="">No canonical mapping yet</option>
               {canonicalCatalog.map((item) => (
@@ -247,7 +267,7 @@ export function ReviewWorkbench({ tasks, decisions, promotions }: ReviewWorkbenc
 
           <label className="field" style={{ marginTop: 16 }}>
             <span className="detail-label">Note</span>
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} />
+            <textarea value={note} onChange={(event) => handleNoteChange(event.target.value)} />
           </label>
 
           {selectedCandidate ? (
